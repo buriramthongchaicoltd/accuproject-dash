@@ -273,10 +273,48 @@
 
 ---
 
+## [Log #12] - 2026-09-15
+- **หัวข้อ/คำสั่ง:** GitHub Import Migration & Environment Normalization (ตามมาตรฐาน AI Studio Web Migration)
+- **การดำเนินการตามขั้นตอน (Executed Actions):**
+  1. **Phase 1: Project Normalization & Lockfile Cleanup**:
+     - ตรวจสอบโครงสร้างโปรเจกต์ ลบไฟล์ล็อก `bun.lock` ออกจาก Root Directory เพื่อป้องกันความขัดแย้งของ package manager
+     - ตรวจสอบ dependencies และ scripts ใน `package.json` พบว่าเป็น Vite React SPA ทำงานร่วมกับ Node.js 22 และ npm
+  2. **Phase 2 & 3: Dev Server & Framework Host Configuration**:
+     - อัปเดต `vite.config.ts`: เพิ่มการผูก `host: '0.0.0.0'`, `port: 3000` และ `allowedHosts: true as const` ใน Server Configuration เพื่อรองรับการทำงานในคอนเทนเนอร์ Cloud Run และ Ingress Reverse Proxy อย่างถูกต้อง
+  3. **Phase 4: Environment Variables Declaration**:
+     - สร้างไฟล์ `.env.example` ประกาศตัวแปรสภาพแวดล้อมที่แอปพลิเคชันใช้งาน (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `GEMINI_API_KEY`) ตามข้อกำหนดมาตรฐานความปลอดภัย
+  4. **Verification**:
+     - รัน `lint_applet` (tsc --noEmit) ผ่าน 100% ไม่มีข้อผิดพลาด
+     - รัน `compile_applet` (vite build) ผ่าน 100% สำเร็จพร้อมใช้งาน
+- **สถานะ:** สำเร็จสมบูรณ์ (Production Build & Lint 100% Passed)
+
+---
+
+## [Log #13] - 2026-09-15
+- **หัวข้อ/คำสั่ง:** ปรับปรุงส่วนเมนูให้สะอาด ไม่รก (Clean & Streamlined Sidebar Navigation)
+- **ปัญหาที่พบ (Root Cause):**
+  - แถบเมนูด้านข้าง (Sidebar) มีป้ายข้อความกำกับ (Sub-badges เช่น "Overview", "AI", "3 ชั้น", "ช่างเหมา", "GR / Backcharge", "Express PO", "ฝ่ายการเงิน", "Express Bridge") มากเกินความจำเป็น
+  - มีการแยกโซน "ฝ่ายจัดซื้อ & เจ้าหนี้" เป็น Zone 2.5 เพิ่มขึ้นมา ทำให้มีหัวข้อแผนกมากถึง 5 โซน เมนูจึงยาวและหนาแน่นจนรกตา
+- **จุดที่แก้ไข (Targeted Changes & Cascading Consistency):**
+  1. `/src/components/Header.tsx`:
+     - ปรับโครงสร้าง `DepartmentZone` กลับสู่ 4 ฝ่ายงานหลักมาตรฐาน (`executive`, `project`, `finance`, `accounting`)
+     - จัดหมวดหมู่ `procurement` (ตรวจรับพัสดุ & ตัดหักช่าง) เข้าฝ่ายโครงการก่อสร้าง (`project`)
+     - จัดหมวดหมู่ `supplier_billing` (รับวางบิลร้านค้า) เข้าฝ่ายการเงิน & ธนาคาร (`finance`)
+  2. `/src/components/Sidebar.tsx`:
+     - จัดระเบียบเมนูนำทางเป็น 4 ฝ่ายงานหลัก สอดคล้องกันทั้งระบบ (Header, Sidebar, Dashboard)
+     - เพิ่มฟังก์ชันเปิด-ปิดพับเก็บเมนู (Collapsible Sections) แยกรายฝ่าย พร้อมปุ่มคลิกเดียว "ย่อทั้งหมด / ขยายทั้งหมด" ช่วยให้เลือกดูเฉพาะกลุ่มงานที่ต้องการได้อย่างคลีน
+     - ถอดป้ายกำกับย่อยที่ซ้ำซ้อนและรกตาออกทั้งหมด คงไว้เฉพาะตัวเลขแจ้งเตือนสถานะสำคัญ เช่น ยอด DBM รอจ่าย
+     - ปรับสไตล์สี Active เมนูให้เป็นโทนสีน้ำเงินองค์กร `#005aa9` เรียบหรู สะอาดตา ไม่ใช้สีหลากสีฉูดฉาด
+     - ปรับแต่งแถบเครื่องมือ CSV (นำเข้า/ส่งออก) ให้เป็นรูปแบบ Grid 2 คอลัมน์ขนาดกะทัดรัด
+     - ปรับการ์ดยอดคงเหลือ GL และปุ่มสลับสิทธิ์ด้านล่างให้กระชับ ไม่กินพื้นที่
+- **สถานะ:** สำเร็จสมบูรณ์ (ผ่านการทดสอบ Lint และ Compile ระดับ Production 100%)
+
+---
+
 ## กฎและโครงสร้างที่ยึดถือ (Current System Conventions)
 - **ฝ่ายบริหารองค์กร (Executive Suite):** `dashboard`, `reports`, `ai_analysis`
-- **ฝ่ายโครงการก่อสร้าง (Project Operations):** `boq`, `subcontracts`, `projects`
-- **ฝ่ายการเงิน & ธนาคาร (Finance & Treasury):** `disbursements`, `payment`
+- **ฝ่ายโครงการก่อสร้าง (Project Operations):** `boq`, `subcontracts`, `procurement`, `projects`
+- **ฝ่ายการเงิน & ธนาคาร (Finance & Treasury):** `disbursements`, `supplier_billing`, `payment`
 - **ฝ่ายบัญชี & ภาษี (Accounting & Tax):** `transactions`, `tax_summary`, `accounts`, `todoist`
 - **มาตรฐานการแก้ไข:** เจาะจงฟังก์ชัน, ไม่แก้ทั้งก้อน, ไม่สร้างทับซ้อน, เช็คความสอดคล้องทั้งระบบ, บันทึก Log ทุกครั้ง
 

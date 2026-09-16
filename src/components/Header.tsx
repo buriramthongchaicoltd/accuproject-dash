@@ -26,7 +26,7 @@ interface HeaderProps {
   onOpenAuthModal?: () => void;
 }
 
-export type DepartmentZone = 'executive' | 'project' | 'finance' | 'accounting' | 'procurement';
+export type DepartmentZone = 'executive' | 'project' | 'finance' | 'accounting';
 
 interface TabMeta {
   department: DepartmentZone;
@@ -129,18 +129,19 @@ const TAB_METADATA: Record<ViewTab, TabMeta> = {
     subtitle: 'กำหนดการยื่นภาษี, ส่งมอบงานงวด, ชำระหนี้คู่ค้า และรายการภาระงาน'
   },
 
-  // ฝ่ายจัดซื้อ & เจ้าหนี้ (Procurement & Payables)
+  // งานตรวจรับพัสดุ & ตัดหักสัญญา (เชื่อมโยงฝ่ายโครงการก่อสร้าง)
   procurement: {
-    department: 'procurement',
-    departmentName: 'ฝ่ายจัดซื้อ & เจ้าหนี้',
-    badgeColor: 'bg-purple-50 text-purple-800 border-purple-200',
+    department: 'project',
+    departmentName: 'ฝ่ายโครงการก่อสร้าง',
+    badgeColor: 'bg-blue-50 text-[#005aa9] border-blue-200',
     title: 'ตรวจรับพัสดุ & ตัดหักสัญญา (Goods Receipts & Allocation)',
     subtitle: 'ตรวจรับวัสดุหน้างานตามใบส่งของ DO, จัดสรรต้นทุนเข้าโครงการ/สต๊อกสโตร์, หักเงินสัญญาช่างเหมา และเทียบราคา 3 เจ้า'
   },
+  // งานรับวางบิลร้านค้า (เชื่อมโยงฝ่ายการเงิน & ธนาคาร)
   supplier_billing: {
-    department: 'procurement',
-    departmentName: 'ฝ่ายจัดซื้อ & เจ้าหนี้',
-    badgeColor: 'bg-purple-50 text-purple-800 border-purple-200',
+    department: 'finance',
+    departmentName: 'ฝ่ายการเงิน & ธนาคาร',
+    badgeColor: 'bg-emerald-50 text-[#009540] border-emerald-200',
     title: 'รับวางบิลร้านค้า & เช็คเอกสาร 3-Way Match',
     subtitle: 'รับวางบิลผู้ค้า, ตรวจใบกำกับภาษี-ใบส่งของมีลายเซ็นต์-สลิปชั่ง, ตรวจสอบตัดหักช่าง และส่งฝ่ายบัญชีออก PV'
   }
