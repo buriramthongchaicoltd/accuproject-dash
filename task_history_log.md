@@ -1258,6 +1258,34 @@
 
 ---
 
+## [Log #33] - 2026-10-02
+- **หัวข้อ/คำสั่ง:** สร้างเอกสารส่งต่องานและสถาปัตยกรรมระบบ (SYSTEM_ARCHITECTURE_HANDOVER.md) เพื่อให้ทีมพัฒนาชุดถัดไปทำงานได้ต่อเนื่อง
+- **ความต้องการของผู้ใช้งาน:**
+  - "สร้าง เอกสารส่งต่องานและสถาปัตยกรรมระบบ เพื่อให้ตยที่จะมาพัฒนาต่อทำงานได้ต่อเนื่องและรู่ว่าในระบบมีอะไรแล้ว ทำถึงไหนแล้ว มีงานค้างอะไร"
+- **การวิเคราะห์ระบบและสถาปัตยกรรม (System Handover & Knowledge Base Formulation):**
+  1. จัดทำเอกสารส่งต่องานมาตรฐานวิศวกรรมซอฟต์แวร์ระดับองค์กรฉบับสมบูรณ์ในชื่อ `/SYSTEM_ARCHITECTURE_HANDOVER.md`
+  2. สรุปรายละเอียดครอบคลุม 8 มิติสำคัญ:
+     - **ข้อมูลองค์กร & หัวกระดาษทางการ:** บจก. บุรีรัมย์ธงชัยก่อสร้าง, เลขผู้เสียภาษี `0315559001144`, ที่อยู่, โทร, อีเมล และโลโก้
+     - **สถาปัตยกรรมทางเทคนิค (Technical Architecture):** Presentation Layer, Business Logic Layer, Data & Integration Layer (React 19, TypeScript, Tailwind, LocalStorage, Supabase, Google Sheets, Gemini AI)
+     - **แผนผังโครงสร้างโฟลเดอร์ & หน้าที่ของไฟล์สำคัญ (Directory Map):** ครอบคลุม Views, Modals, Documents, Services, Utils
+     - **สิ่งที่ทำเสร็จแล้ว 100% (What is Built):** แยกตาม 4 ฝ่ายหลัก (ฝ่ายโครงการ, ฝ่ายจัดซื้อ, ฝ่ายการเงิน, ฝ่ายบัญชี & ผู้บริหาร) และระบบความปลอดภัย RBAC 3 ระดับ
+     - **การเชื่อมโยงข้อมูล (Data Pipeline & Consistency):** PO/GR ➔ 3-Way Match ➔ DBM ➔ 4 Signatures ➔ PV ➔ GL ➔ Bank & P&L
+     - **งานค้างและแนวทางพัฒนาต่อยอด (Pending Tasks & Backlog):**
+       1. การเชื่อมต่อตาราง Supabase Database จริงบน Cloud & Supabase Storage สำหรับไฟล์แนบ
+       2. ระบบแจ้งเตือน LINE Notify / Email เมื่อมีการขออนุมัติ DBM
+       3. ระบบส่งออกข้อมูลภาษีหัก ณ ที่จ่าย (e-Withholding Tax / RD Prep format)
+       4. ฟังก์ชันถ่ายภาพใบเสร็จ/ใบแจ้งหนี้สแกนข้อมูลด้วย AI OCR (Gemini Flash)
+     - **กฎเหล็กและข้อควรระวังในการพัฒนาต่อ (Engineering Rules):** เน้นย้ำกฎ 7 ข้อจาก `AGENTS.md` และการคงระบบ Login/RBAC
+     - **บัญชีทดสอบสำหรับผู้พัฒนา (Demo Accounts):** Admin, Manager, User พร้อมรหัส PIN
+  3. ปรับปรุง `README.md` เชื่อมโยงตรงสู่เอกสารส่งต่องานฉบับนี้
+- **การตรวจสอบคุณภาพ (Verification):**
+  - ตรวจสอบความถูกต้องของลิงก์และโครงสร้างไฟล์ทั้งหมด
+  - ผ่าน `lint_applet` (0 errors)
+  - ผ่าน `compile_applet` สำเร็จ 100%
+- **สถานะ:** เสร็จสมบูรณ์ เอกสารส่งต่องานพร้อมใช้งานทันทีสำหรับนักพัฒนาท่านถัดไป
+
+---
+
 ## กฎและโครงสร้างที่ยึดถือ (Current System Conventions)
 - **ฝ่ายโครงการ (Project Operations):** `boq`, `subcontracts`, `projects`
 - **ฝ่ายจัดซื้อ (Procurement & Purchasing):** `procurement`, `supplier_billing`
