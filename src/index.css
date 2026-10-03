@@ -62,11 +62,12 @@
   }
   .print-phase2 .phase2-spacer {
     display: block !important;
-    height: 168mm !important;
+    height: 160mm !important;
     visibility: hidden !important;
   }
   .print-phase2 .section-divider {
-    display: none !important;
+    display: block !important;
+    visibility: visible !important;
   }
   .print-phase2 .transfer-section {
     display: block !important;

@@ -16,8 +16,8 @@ export function BTCLogo({
 }: BTCLogoProps) {
   const [imageError, setImageError] = useState(false);
 
-  // Direct Google Drive image links for public drive asset
-  const driveImgUrl = 'https://lh3.googleusercontent.com/d/1kqgkV23b320QUl-jrd395HDO9qYRWzwy';
+  // Official company logo image link
+  const logoImgUrl = 'https://img2.pic.in.th/pic/Screenshot-2025-03-03-132721e6cc77cbcea28f01.png';
 
   const logoHeights = {
     sm: 'h-9',
@@ -29,7 +29,7 @@ export function BTCLogo({
     <div className={`flex items-center gap-3 ${className}`}>
       {!imageError ? (
         <img
-          src={driveImgUrl}
+          src={logoImgUrl}
           alt="บจก. บุรีรัมย์ธงชัยก่อสร้าง Logo"
           referrerPolicy="no-referrer"
           className={`${logoHeights[size]} w-auto object-contain shrink-0`}
@@ -60,7 +60,7 @@ export function BTCLogo({
               </span>
               {showPhone && (
                 <span className="text-[10px] font-semibold text-[#009540] mt-0.5">
-                  Tel. 044-611835
+                  Tel. 044-611134
                 </span>
               )}
             </div>

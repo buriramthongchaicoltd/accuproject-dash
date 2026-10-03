@@ -160,6 +160,20 @@ export const INITIAL_SUBCONTRACTS: Subcontract[] = [
     endDate: '2026-11-30',
     status: 'active',
 
+    // ข้อมูลทางนิติกรรมสัญญา
+    contractDate: '1 มิถุนายน 2569',
+    employerName: 'บริษัท บุรีรัมย์ธงชัยก่อสร้าง จำกัด',
+    employerRep: 'นายวิชัย นพสุวรรณวงศ์',
+    employerPosition: 'กรรมการผู้จัดการ',
+    contractorRep: 'นายปิยะพงษ์ สิทธิชัย',
+    contractorPosition: 'หุ้นส่วนผู้จัดการ',
+    contractorAddress: 'เลขที่ 88/12 หมู่ที่ 5 ต.นอกเมือง อ.เมืองสุรินทร์ จ.สุรินทร์ 32000',
+    dailyPenalty: 2900,
+    dailyPenaltyText: 'สองพันเก้าร้อยบาทถ้วน',
+    paymentDueDay: 5,
+    installmentCount: 5,
+    workDurationMonths: 6,
+
     totalInspectedQty: 1400,
     totalApprovedAmount: 2030000,
     totalPaidAmount: 1300000,
@@ -193,6 +207,20 @@ export const INITIAL_SUBCONTRACTS: Subcontract[] = [
     startDate: '2026-06-15',
     endDate: '2026-12-15',
     status: 'active',
+
+    // ข้อมูลทางนิติกรรมสัญญา
+    contractDate: '15 มิถุนายน 2569',
+    employerName: 'บริษัท บุรีรัมย์ธงชัยก่อสร้าง จำกัด',
+    employerRep: 'นายวิชัย นพสุวรรณวงศ์',
+    employerPosition: 'กรรมการผู้จัดการ',
+    contractorRep: 'นายสมศักดิ์ ช่างเหล็ก',
+    contractorPosition: 'ผู้รับจ้าง',
+    contractorAddress: 'เลขที่ 214 หมู่ที่ 2 ต.กังแอน อ.ปราสาท จ.สุรินทร์ 32140',
+    dailyPenalty: 2800,
+    dailyPenaltyText: 'สองพันแปดร้อยบาทถ้วน',
+    paymentDueDay: 5,
+    installmentCount: 4,
+    workDurationMonths: 6,
 
     totalInspectedQty: 1000,
     totalApprovedAmount: 1400000,

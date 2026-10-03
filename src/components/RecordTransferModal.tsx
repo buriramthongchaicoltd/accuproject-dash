@@ -2,6 +2,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { Disbursement } from '../types';
 import { X, Save, CheckCircle2, ArrowRight, Link, Building2 } from 'lucide-react';
 import QRCode from 'qrcode';
+import { getActiveUserName } from '../services/userService';
 
 interface RecordTransferModalProps {
   isOpen: boolean;
@@ -36,7 +37,7 @@ export function RecordTransferModal({
   const [transferAmount, setTransferAmount] = useState<string>('');
   const [fee, setFee] = useState<string>('0');
   const [documentLink, setDocumentLink] = useState('');
-  const [financeRecordedBy, setFinanceRecordedBy] = useState('น.ส.กมลทิพย์ กรมทอง (การเงิน)');
+  const [financeRecordedBy, setFinanceRecordedBy] = useState(() => getActiveUserName());
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
   useEffect(() => {
@@ -59,7 +60,7 @@ export function RecordTransferModal({
       );
       setFee(disbursement.fee ? disbursement.fee.toString() : '0');
       setDocumentLink(disbursement.documentLink || '');
-      setFinanceRecordedBy(disbursement.financeRecordedBy || 'น.ส.กมลทิพย์ กรมทอง (การเงิน)');
+      setFinanceRecordedBy(disbursement.financeRecordedBy || getActiveUserName());
     }
   }, [disbursement, isOpen, accountsList]);
 
@@ -245,7 +246,18 @@ export function RecordTransferModal({
           </div>
 
           <div>
-            <label className="font-bold text-slate-700 block mb-1">ผู้บันทึกรายการฝ่ายการเงิน</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="font-bold text-slate-700">ผู้บันทึกรายการฝ่ายการเงิน</label>
+              {financeRecordedBy !== getActiveUserName() && (
+                <button
+                  type="button"
+                  onClick={() => setFinanceRecordedBy(getActiveUserName())}
+                  className="text-[11px] text-[#005aa9] hover:underline font-semibold cursor-pointer"
+                >
+                  ใช้ชื่อฉัน ({getActiveUserName()})
+                </button>
+              )}
+            </div>
             <input
               type="text"
               value={financeRecordedBy}

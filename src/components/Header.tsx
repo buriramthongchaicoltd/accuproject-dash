@@ -7,9 +7,13 @@ import {
   ReceiptText, 
   Database, 
   Lock, 
-  ShieldCheck
+  ShieldCheck,
+  UserCheck,
+  LogOut,
+  Shield
 } from 'lucide-react';
-import { ViewTab, UserRole } from '../types';
+import { ViewTab, UserRole, AppUser } from '../types';
+import { useActiveUser } from '../services/userService';
 
 interface HeaderProps {
   currentTab: ViewTab;
@@ -23,10 +27,12 @@ interface HeaderProps {
   isSupabaseConnected?: boolean;
   onOpenSupabaseStatus?: () => void;
   userRole?: UserRole;
-  onOpenAuthModal?: () => void;
+  currentUser?: AppUser | null;
+  onLogout?: () => void;
+  onOpenUserProfile?: () => void;
 }
 
-export type DepartmentZone = 'executive' | 'project' | 'finance' | 'accounting';
+export type DepartmentZone = 'project' | 'procurement' | 'finance' | 'accounting_executive';
 
 interface TabMeta {
   department: DepartmentZone;
@@ -37,113 +43,124 @@ interface TabMeta {
 }
 
 const TAB_METADATA: Record<ViewTab, TabMeta> = {
-  // ฝ่ายบริหารองค์กร (Executive)
-  dashboard: {
-    department: 'executive',
-    departmentName: 'ฝ่ายบริหารองค์กร',
-    badgeColor: 'bg-amber-50 text-amber-900 border-amber-300',
-    title: 'แดชบอร์ดภาพรวมผู้บริหาร',
-    subtitle: 'สรุปภาพรวมสภาพคล่อง, ผลประกอบการ 4 บริษัทในเครือ และสถานะกระแสเงินสด'
-  },
-  reports: {
-    department: 'executive',
-    departmentName: 'ฝ่ายบริหารองค์กร',
-    badgeColor: 'bg-amber-50 text-amber-900 border-amber-300',
-    title: 'รายงานการเงิน & งบกำไรขาดทุน (P&L)',
-    subtitle: 'งบกำไรขาดทุนสะสม, วิเคราะห์รายรับ-รายจ่ายรายเดือน และสถานะสภาพคล่อง'
-  },
-  ai_analysis: {
-    department: 'executive',
-    departmentName: 'ฝ่ายบริหารองค์กร',
-    badgeColor: 'bg-amber-50 text-amber-900 border-amber-300',
-    title: 'AI วิเคราะห์งบการเงิน & สภาพคล่อง',
-    subtitle: 'ประเมินกระแสเงินสดจากการดำเนินงาน, เฝ้าระวังความเสี่ยงโครงการ และ Cash Runway'
-  },
-
-  // ฝ่ายโครงการก่อสร้าง (Project)
+  // ฝ่ายโครงการ
   boq: {
     department: 'project',
-    departmentName: 'ฝ่ายโครงการก่อสร้าง',
+    departmentName: 'ฝ่ายโครงการ',
     badgeColor: 'bg-blue-50 text-[#005aa9] border-blue-200',
     title: 'BOQ โครงการ',
     subtitle: 'บริหาร BOQ 3 ชั้น: สัญญาประมูล, งบวิศวะหน้างาน และโควตาถอดแบบวัสดุ (BOM) รายโครงการ'
   },
   subcontracts: {
     department: 'project',
-    departmentName: 'ฝ่ายโครงการก่อสร้าง',
+    departmentName: 'ฝ่ายโครงการ',
     badgeColor: 'bg-blue-50 text-[#005aa9] border-blue-200',
     title: 'บริหารผู้รับเหมาช่วง & ตรวจรับงาน',
     subtitle: 'สัญญาจ้างช่างเหมา, ตรวจรับงานตาม กม., หักค่าวัสดุร้านค้า/ค่าปรับ, เบิกค่าผลงาน และคืนเงินประกัน'
   },
   projects: {
     department: 'project',
-    departmentName: 'ฝ่ายโครงการก่อสร้าง',
+    departmentName: 'ฝ่ายโครงการ',
     badgeColor: 'bg-blue-50 text-[#005aa9] border-blue-200',
     title: 'ต้นทุน & กำไรโครงการ',
     subtitle: 'ภาพรวมกำไรขั้นต้น, สรุปรายรับ-รายจ่ายจริงเทียบโครงการ และแยกตามหมวดต้นทุน'
   },
 
-  // ฝ่ายการเงิน & ธนาคาร (Finance)
+  // ฝ่ายจัดซื้อ
+  procurement: {
+    department: 'procurement',
+    departmentName: 'ฝ่ายจัดซื้อ',
+    badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    title: 'ตรวจรับพัสดุ & ตัดหักสัญญา (Goods Receipts & Allocation)',
+    subtitle: 'ตรวจรับวัสดุหน้างานตามใบส่งของ DO, จัดสรรต้นทุนเข้าโครงการ/สต๊อกสโตร์, หักเงินสัญญาช่างเหมา และเทียบราคา 3 เจ้า'
+  },
+  supplier_billing: {
+    department: 'procurement',
+    departmentName: 'ฝ่ายจัดซื้อ',
+    badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    title: 'รับวางบิลร้านค้า & เช็คเอกสาร 3-Way Match',
+    subtitle: 'รับวางบิลผู้ค้า, ตรวจใบกำกับภาษี-ใบส่งของมีลายเซ็นต์-สลิปชั่ง, ตรวจสอบตัดหักช่าง และส่งฝ่ายการเงินตั้งเบิก'
+  },
+
+  // ฝ่ายการเงิน
   disbursements: {
     department: 'finance',
-    departmentName: 'ฝ่ายการเงิน & ธนาคาร',
+    departmentName: 'ฝ่ายการเงิน',
     badgeColor: 'bg-emerald-50 text-[#009540] border-emerald-200',
     title: 'ใบขอตั้งเบิก (DBM)',
     subtitle: 'จัดทำใบขอตั้งเบิกเงินค่าใช้จ่าย, แนบเอกสารหลักฐาน และเสนอผู้บริหารพิจารณาอนุมัติจ่าย'
   },
   payment: {
     department: 'finance',
-    departmentName: 'ฝ่ายการเงิน & ธนาคาร',
+    departmentName: 'ฝ่ายการเงิน',
     badgeColor: 'bg-emerald-50 text-[#009540] border-emerald-200',
     title: 'บันทึกจ่ายเงิน & ใบสำคัญจ่าย (PV)',
     subtitle: 'คิวจ่ายเงินที่ได้รับอนุมัติแล้ว, บันทึกการโอนเงิน, แนบสลิป และพิมพ์ PV'
   },
+  accounts: {
+    department: 'finance',
+    departmentName: 'ฝ่ายการเงิน',
+    badgeColor: 'bg-emerald-50 text-[#009540] border-emerald-200',
+    title: 'บัญชีธนาคาร & เงินยืมในเครือ',
+    subtitle: 'ยอดเงินฝากทุกบัญชีธนาคาร (KTB, BBL), บัญชีเงินสดย่อย และเงินกู้ยืมระหว่างบริษัท'
+  },
 
-  // ฝ่ายบัญชี & ภาษี (Accounting)
+  // ฝ่ายบัญชี & ผู้บริหาร
+  dashboard: {
+    department: 'accounting_executive',
+    departmentName: 'ฝ่ายบัญชี & ผู้บริหาร',
+    badgeColor: 'bg-amber-50 text-amber-900 border-amber-300',
+    title: 'แดชบอร์ดภาพรวมผู้บริหาร',
+    subtitle: 'สรุปภาพรวมสภาพคล่อง, ผลประกอบการ 4 บริษัทในเครือ และสถานะกระแสเงินสด'
+  },
+  reports: {
+    department: 'accounting_executive',
+    departmentName: 'ฝ่ายบัญชี & ผู้บริหาร',
+    badgeColor: 'bg-amber-50 text-amber-900 border-amber-300',
+    title: 'รายงานการเงิน & งบกำไรขาดทุน (P&L)',
+    subtitle: 'งบกำไรขาดทุนสะสม, วิเคราะห์รายรับ-รายจ่ายรายเดือน และสถานะสภาพคล่อง'
+  },
+  ai_analysis: {
+    department: 'accounting_executive',
+    departmentName: 'ฝ่ายบัญชี & ผู้บริหาร',
+    badgeColor: 'bg-amber-50 text-amber-900 border-amber-300',
+    title: 'AI วิเคราะห์งบการเงิน & สภาพคล่อง',
+    subtitle: 'ประเมินกระแสเงินสดจากการดำเนินงาน, เฝ้าระวังความเสี่ยงโครงการ และ Cash Runway'
+  },
   transactions: {
-    department: 'accounting',
-    departmentName: 'ฝ่ายบัญชี & ภาษี',
+    department: 'accounting_executive',
+    departmentName: 'ฝ่ายบัญชี & ผู้บริหาร',
     badgeColor: 'bg-slate-100 text-slate-800 border-slate-300',
     title: 'สมุดรายรับ-รายจ่าย (GL)',
     subtitle: 'สมุดรายวันทั่วไป, บัญชีแยกประเภท, บันทึกเดบิต/เครดิต และกระทบยอดสเตทเมนต์'
   },
   tax_summary: {
-    department: 'accounting',
-    departmentName: 'ฝ่ายบัญชี & ภาษี',
+    department: 'accounting_executive',
+    departmentName: 'ฝ่ายบัญชี & ผู้บริหาร',
     badgeColor: 'bg-slate-100 text-slate-800 border-slate-300',
     title: 'สรุปภาษี & ประกันสังคม',
     subtitle: 'ภ.ง.ด. 1, 3, 53, ภาษีมูลค่าเพิ่ม (ภ.พ.30) และเงินสมทบ สปส.'
   },
-  accounts: {
-    department: 'accounting',
-    departmentName: 'ฝ่ายบัญชี & ภาษี',
-    badgeColor: 'bg-slate-100 text-slate-800 border-slate-300',
-    title: 'บัญชีธนาคาร & เงินยืมในเครือ',
-    subtitle: 'ยอดเงินฝากทุกบัญชีธนาคาร (KTB, BBL), บัญชีเงินสดย่อย และเงินกู้ยืมระหว่างบริษัท'
-  },
   todoist: {
-    department: 'accounting',
-    departmentName: 'ฝ่ายบัญชี & ภาษี',
+    department: 'accounting_executive',
+    departmentName: 'ฝ่ายบัญชี & ผู้บริหาร',
     badgeColor: 'bg-slate-100 text-slate-800 border-slate-300',
     title: 'ปฏิทินกำหนดจ่าย & ภาระผูกพัน',
     subtitle: 'กำหนดการยื่นภาษี, ส่งมอบงานงวด, ชำระหนี้คู่ค้า และรายการภาระงาน'
   },
-
-  // งานตรวจรับพัสดุ & ตัดหักสัญญา (เชื่อมโยงฝ่ายโครงการก่อสร้าง)
-  procurement: {
-    department: 'project',
-    departmentName: 'ฝ่ายโครงการก่อสร้าง',
+  document_templates: {
+    department: 'accounting_executive',
+    departmentName: 'แบบฟอร์มเอกสาร',
     badgeColor: 'bg-blue-50 text-[#005aa9] border-blue-200',
-    title: 'ตรวจรับพัสดุ & ตัดหักสัญญา (Goods Receipts & Allocation)',
-    subtitle: 'ตรวจรับวัสดุหน้างานตามใบส่งของ DO, จัดสรรต้นทุนเข้าโครงการ/สต๊อกสโตร์, หักเงินสัญญาช่างเหมา และเทียบราคา 3 เจ้า'
+    title: 'ตัวอย่างเอกสารมาตรฐาน (Standard Document Templates)',
+    subtitle: 'ศูนย์รวมแบบฟอร์มเอกสาร 14 ฉบับมาตรฐานงานก่อสร้าง จัดซื้อ บัญชี และการเงิน พร้อมสั่งพิมพ์ A4'
   },
-  // งานรับวางบิลร้านค้า (เชื่อมโยงฝ่ายการเงิน & ธนาคาร)
-  supplier_billing: {
-    department: 'finance',
-    departmentName: 'ฝ่ายการเงิน & ธนาคาร',
-    badgeColor: 'bg-emerald-50 text-[#009540] border-emerald-200',
-    title: 'รับวางบิลร้านค้า & เช็คเอกสาร 3-Way Match',
-    subtitle: 'รับวางบิลผู้ค้า, ตรวจใบกำกับภาษี-ใบส่งของมีลายเซ็นต์-สลิปชั่ง, ตรวจสอบตัดหักช่าง และส่งฝ่ายบัญชีออก PV'
+  user_management: {
+    department: 'accounting_executive',
+    departmentName: 'ฝ่ายบริหาร & สิทธิ์',
+    badgeColor: 'bg-purple-50 text-purple-800 border-purple-200',
+    title: 'การจัดการผู้ใช้งาน & กำหนดสิทธิ์ (User Management & RBAC)',
+    subtitle: 'บริหารจัดการผู้ใช้งานในระบบ, กำหนดบทบาท Admin / Manager / User และควบคุมสิทธิ์การเข้าถึงเมนู'
   }
 };
 
@@ -158,13 +175,16 @@ export function Header({
   isSupabaseConnected = false,
   onOpenSupabaseStatus,
   userRole = 'executive',
-  onOpenAuthModal,
+  currentUser,
+  onLogout,
+  onOpenUserProfile,
 }: HeaderProps) {
+  const { activeUserName } = useActiveUser();
   const currentMeta = TAB_METADATA[currentTab] || {
-    department: 'accounting',
-    departmentName: 'ฝ่ายบัญชี & ภาษี',
-    badgeColor: 'bg-slate-100 text-slate-800 border-slate-300',
-    title: 'ระบบบัญชี & เบิกจ่าย',
+    department: 'accounting_executive',
+    departmentName: 'ฝ่ายบัญชี & ผู้บริหาร',
+    badgeColor: 'bg-amber-50 text-amber-900 border-amber-300',
+    title: 'ระบบบริหารงานก่อสร้าง & บัญชี',
     subtitle: 'บจก. บุรีรัมย์ธงชัยก่อสร้าง'
   };
 
@@ -268,31 +288,49 @@ export function Header({
               </button>
             </div>
 
-            {/* Role Access Pill */}
-            {onOpenAuthModal && (
+            {/* Active User Identity Pill with Role Badge */}
+            <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={onOpenAuthModal}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer shrink-0 ${
-                  userRole === 'executive'
-                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 shadow-2xs'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
-                }`}
-                title={userRole === 'executive' ? 'สิทธิ์ผู้บริหาร (คลิกเพื่อสลับโหมด)' : 'สิทธิ์พนักงาน (คลิกเพื่อปลดล็อกผู้บริหาร)'}
+                onClick={onOpenUserProfile}
+                className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 transition-all cursor-pointer shrink-0 shadow-2xs"
+                title="คลิกเพื่อดูหรือเปลี่ยนโปรไฟล์ผู้ใช้งาน"
               >
-                {userRole === 'executive' ? (
-                  <>
-                    <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                    <span className="hidden sm:inline">👑 ผู้บริหาร</span>
-                  </>
-                ) : (
-                  <>
-                    <Lock className="w-3.5 h-3.5 text-slate-500" />
-                    <span className="hidden sm:inline">🔒 ปลดล็อกผู้บริหาร</span>
-                  </>
-                )}
+                <div className={`w-5 h-5 rounded-full font-bold text-[10px] flex items-center justify-center text-white shrink-0 ${
+                  currentUser?.role === 'admin'
+                    ? 'bg-purple-700'
+                    : currentUser?.role === 'manager'
+                      ? 'bg-[#005aa9]'
+                      : 'bg-emerald-600'
+                }`}>
+                  {(currentUser?.name || activeUserName).charAt(0)}
+                </div>
+                <span className="max-w-[120px] truncate hidden sm:inline">
+                  {currentUser?.name || activeUserName}
+                </span>
+                <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase ${
+                  currentUser?.role === 'admin'
+                    ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                    : currentUser?.role === 'manager'
+                      ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                      : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                }`}>
+                  {currentUser?.role || (userRole === 'executive' ? 'manager' : 'user')}
+                </span>
               </button>
-            )}
+
+              {/* Logout Button */}
+              {onLogout && (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg border border-slate-200 transition-colors cursor-pointer shrink-0"
+                  title="ออกจากระบบ (Sign Out)"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              )}
+            </div>
 
 
 

@@ -67,8 +67,8 @@ export function DisbursementDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden">
-      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden print:p-0 print:bg-white print:static print:z-auto print:overflow-visible">
+      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 print:border-none print:shadow-none print:max-w-none print:max-h-none print:rounded-none print:overflow-visible">
         
         {/* Top Control Bar (Hidden on Print) */}
         <div className="print:hidden bg-slate-50 border-b border-slate-200 px-5 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0">
@@ -113,51 +113,45 @@ export function DisbursementDetailModal({
             <button
               type="button"
               onClick={() => handlePrint('phase1')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs whitespace-nowrap shrink-0 ${
                 printMode === 'phase1'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-blue-600 text-white shadow-blue-200'
                   : 'bg-white hover:bg-blue-50 text-blue-700 border border-blue-200'
               }`}
-              title="พิมพ์เฉพาะใบตั้งเบิก (ครึ่งบนของ A4)"
+              title="พิมพ์เฉพาะใบตั้งเบิก (ครึ่งบนของ A4) เพื่อเสนอตรวจและอนุมัติ"
             >
-              <Printer className="w-3.5 h-3.5" />
-              <span>พิมพ์รอบ 1: ใบตั้งเบิก</span>
+              <Printer className="w-3.5 h-3.5 shrink-0" />
+              <span className="whitespace-nowrap">พิมพ์รอบ 1: ใบตั้งเบิก</span>
             </button>
 
             {/* Button 2: Print Phase 2 (Payment Voucher) */}
             <button
               type="button"
               onClick={() => handlePrint('phase2')}
-              disabled={!isPaid}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs ${
-                !isPaid
-                  ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-50'
-                  : printMode === 'phase2'
-                    ? 'bg-amber-600 text-white cursor-pointer'
-                    : 'bg-white hover:bg-amber-50 text-amber-800 border border-amber-200 cursor-pointer'
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs whitespace-nowrap shrink-0 ${
+                printMode === 'phase2'
+                  ? 'bg-amber-600 text-white shadow-amber-200'
+                  : 'bg-white hover:bg-amber-50 text-amber-800 border border-amber-200'
               }`}
-              title={isPaid ? 'ใส่กระดาษแผ่นเดิมจากรอบที่ 1 แล้วพิมพ์เฉพาะบันทึกจ่ายเงิน (ครึ่งล่าง)' : 'พิมพ์ได้เมื่อบันทึกจ่ายเงินแล้ว'}
+              title="ใส่กระดาษแผ่นเดิมจากรอบที่ 1 แล้วพิมพ์เฉพาะบันทึกจ่ายเงินต่อลงครึ่งล่าง"
             >
-              <Printer className="w-3.5 h-3.5" />
-              <span>พิมพ์รอบ 2: บันทึกจ่ายเงิน</span>
+              <Printer className="w-3.5 h-3.5 shrink-0" />
+              <span className="whitespace-nowrap">พิมพ์รอบ 2: บันทึกจ่ายเงิน</span>
             </button>
 
             {/* Button 3: Print Both (Single Pass) */}
             <button
               type="button"
               onClick={() => handlePrint('both')}
-              disabled={!isPaid}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs ${
-                !isPaid
-                  ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-50'
-                  : printMode === 'both'
-                    ? 'bg-[#009540] text-white cursor-pointer'
-                    : 'bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 cursor-pointer'
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs whitespace-nowrap shrink-0 ${
+                printMode === 'both'
+                  ? 'bg-[#009540] text-white shadow-emerald-200'
+                  : 'bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200'
               }`}
-              title={isPaid ? 'พิมพ์ทั้ง 2 ส่วนพร้อมกันในหน้าเดียว' : 'เปิดใช้งานเมื่อทำครบ 2 ขั้นตอนแล้ว'}
+              title="พิมพ์ทั้ง 2 ส่วนพร้อมกันในหน้าเดียว A4"
             >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>พิมพ์รวมรอบเดียว</span>
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span className="whitespace-nowrap">พิมพ์รวมรอบเดียว</span>
             </button>
 
             <div className="h-5 w-px bg-slate-200 mx-1"></div>
@@ -218,9 +212,24 @@ export function DisbursementDetailModal({
         >
           <div className="max-w-[210mm] mx-auto border border-slate-300 print:border-none p-6 print:p-4 bg-white space-y-4 shadow-sm min-h-[297mm]">
             
-            {/* Phase 2 Top Spacer (Reserves top 168mm on A4) */}
+            {/* Phase 2 Top Spacer (Reserves top 160mm on A4 for 2nd pass) */}
             {printMode === 'phase2' && (
-              <div className="phase2-spacer h-[165mm]" />
+              <div 
+                className="phase2-spacer w-full h-[160mm] border-2 border-dashed border-blue-200 bg-blue-50/40 rounded-xl flex flex-col items-center justify-center p-6 text-center text-blue-900 print:border-none print:bg-transparent print:p-0 print:m-0"
+                style={{ minHeight: '160mm', height: '160mm' }}
+              >
+                <div className="print:hidden flex flex-col items-center gap-2">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div className="font-bold text-sm text-blue-950">
+                    พื้นที่ครึ่งบน (เว้นว่างไว้สำหรับใบตั้งเบิกเดิมที่มีลายเซ็นอนุมัติแล้ว)
+                  </div>
+                  <p className="text-xs text-blue-800 max-w-md">
+                    กรุณานำกระดาษ A4 แผ่นเดิมที่พิมพ์ <strong>"ใบตั้งเบิกเงิน"</strong> ในรอบแรก ใส่กลับเข้าถาดเครื่องพิมพ์ เพื่อพิมพ์ส่วน <strong>"บันทึกจ่ายเงิน"</strong> ต่อลงครึ่งล่างในเอกสารใบเดียวกัน
+                  </p>
+                </div>
+              </div>
             )}
 
             {/* ==========================================
@@ -257,11 +266,11 @@ export function DisbursementDetailModal({
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <h2 className="text-xl font-black text-black tracking-tight">ใบตั้งเบิก / ขออนุมัติจ่าย</h2>
-                  <span className="text-[11px] font-mono text-slate-700">PAYMENT VOUCHER</span>
+                <div className="text-right shrink-0">
+                  <h2 className="text-xl font-black text-black tracking-tight whitespace-nowrap">ใบตั้งเบิก / ขออนุมัติจ่าย</h2>
+                  <span className="text-[11px] font-mono text-slate-700 whitespace-nowrap">PAYMENT VOUCHER</span>
                   {disbursement.pvNo && (
-                    <div className="text-xs font-mono font-black text-blue-800 mt-0.5">
+                    <div className="text-xs font-mono font-black text-blue-800 mt-0.5 whitespace-nowrap">
                       PV: {disbursement.pvNo}
                     </div>
                   )}
@@ -508,11 +517,29 @@ export function DisbursementDetailModal({
             </div>
             )}
 
+            {/* Phase 1 Lower Guide (Screen only, completely blank in print) */}
+            {printMode === 'phase1' && (
+              <div className="my-6 border-2 border-dashed border-emerald-300 bg-emerald-50/60 rounded-xl p-6 text-center print:hidden">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-800">
+                    <Scissors className="w-5 h-5" />
+                  </div>
+                  <div className="font-bold text-sm text-emerald-950">
+                    พื้นที่ครึ่งล่างเว้นว่างไว้สำหรับรอบที่ 2 (บันทึกจ่ายเงิน)
+                  </div>
+                  <p className="text-xs text-slate-600 max-w-md">
+                    ระบบจะพิมพ์เฉพาะ <strong>"ใบตั้งเบิกเงิน"</strong> บนครึ่งบนของกระดาษ A4 เพื่อนำไปเสนอตรวจและอนุมัติ <br />
+                    หลังจากบันทึกจ่ายเงินแล้ว ให้นำกระดาษแผ่นนี้ใส่กลับเข้าเครื่องพิมพ์ แล้วเลือก <strong>"พิมพ์รอบ 2: บันทึกจ่ายเงิน"</strong> เพื่อพิมพ์ต่อในกระดาษใบเดียวกัน
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* ==========================================
                 เส้นประแบ่งหน้า (Section Divider ✂️)
-                (แสดงเมื่อเลือก 'both' พิมพ์รวมรอบเดียว)
+                (แสดงเมื่อเลือก 'both' หรือ 'phase2')
                 ========================================== */}
-            {printMode === 'both' && (
+            {(printMode === 'both' || printMode === 'phase2') && (
               <div className="section-divider relative my-3 border-t-2 border-dashed border-slate-300 flex items-center justify-center">
                 <span className="absolute bg-white px-3 text-slate-400 text-xs flex items-center gap-1 font-mono">
                   <Scissors className="w-3.5 h-3.5" /> ตัดตามรอยประ

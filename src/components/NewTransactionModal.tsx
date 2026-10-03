@@ -7,8 +7,17 @@ import {
   ArrowUpRight, 
   AlertCircle, 
   CheckCircle2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Building2,
+  FileText,
+  Send,
+  PenTool
 } from 'lucide-react';
+import { SearchableCombobox } from './SearchableCombobox';
+import { BTCLogo } from './BTCLogo';
+import { numberToThaiBaht } from '../utils/thaiBahtText';
+import { getActiveUserName } from '../services/userService';
+import { useDatabaseSuggestions } from '../context/DatabaseSuggestionsContext';
 
 interface NewTransactionModalProps {
   isOpen: boolean;
@@ -43,6 +52,7 @@ export function NewTransactionModal({
   const [category, setCategory] = useState('ค่าวัสดุก่อสร้าง');
   const [amount, setAmount] = useState<string>('');
   const [remarks, setRemarks] = useState('');
+  const [recordedBy, setRecordedBy] = useState(getActiveUserName() || 'เจ้าหน้าที่การเงินและบัญชี');
 
   // Separated categories for Expense vs Income to prevent confusion
   const expenseCategories = [
@@ -286,315 +296,372 @@ export function NewTransactionModal({
     onClose();
   };
 
+  const suggestions = useDatabaseSuggestions();
   const isExpense = type === 'expense';
   const activeCategories = isExpense ? expenseCategories : incomeCategories;
 
+  const dynamicCompanies = suggestions.companies.length > 0 ? suggestions.companies : companiesList;
+  const dynamicAccounts = suggestions.bankAccounts.length > 0 ? suggestions.bankAccounts : accountsList;
+  const dynamicProjects = suggestions.projects.length > 0 ? suggestions.projects : projectsList;
+  const dynamicCategories = suggestions.txCategories.length > 0 ? suggestions.txCategories : activeCategories;
+
+  const numAmount = parseFloat(amount) || 0;
+  const thaiBahtText = numberToThaiBaht(numAmount);
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden">
-      <div className={`bg-white rounded-2xl sm:rounded-3xl max-w-xl w-full border shadow-2xl overflow-hidden max-h-[94vh] flex flex-col animate-in fade-in zoom-in-95 duration-150 ${
-        isExpense ? 'border-rose-300' : 'border-emerald-300'
-      }`}>
+      <div className="bg-white rounded-2xl max-w-4xl w-full border border-slate-300 shadow-2xl overflow-hidden max-h-[94vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
         
-        {/* Modal Header - Dynamically themed to prevent confusion */}
-        <div className={`px-5 sm:px-6 py-3.5 border-b flex items-center justify-between shrink-0 transition-colors ${
-          isExpense 
-            ? 'bg-gradient-to-r from-rose-50 via-rose-50/70 to-slate-50 border-rose-200' 
-            : 'bg-gradient-to-r from-emerald-50 via-emerald-50/70 to-slate-50 border-emerald-200'
-        }`}>
+        {/* Top Control Bar */}
+        <div className="bg-slate-800 text-white px-5 sm:px-6 py-3.5 flex items-center justify-between shrink-0 shadow-md">
           <div className="flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold shrink-0 shadow-xs border ${
               isExpense 
-                ? 'bg-rose-100 text-rose-700 border-rose-200' 
-                : 'bg-emerald-100 text-[#009540] border-emerald-200'
+                ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' 
+                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
             }`}>
               {isExpense ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-black text-slate-900">
+                <h3 className="text-sm sm:text-base font-black text-white">
                   {editingTransaction 
-                    ? `แก้ไขรายการ: ${isExpense ? '🔴 รายจ่าย (Cr.)' : '🟢 รายรับ (Dr.)'}` 
-                    : isExpense ? '🔴 แบบฟอร์มบันทึกรายจ่าย (Expense / Cr.)' : '🟢 แบบฟอร์มบันทึกรายรับ (Income / Dr.)'
+                    ? `แก้ไขรายการ: ${isExpense ? 'ใบสำคัญจ่าย (Payment Voucher)' : 'ใบสำคัญรับ (Receipt Voucher)'}` 
+                    : isExpense ? 'แบบฟอร์มใบสำคัญจ่ายเงิน (Payment Voucher Form)' : 'แบบฟอร์มใบสำคัญรับเงิน (Receipt Voucher Form)'
                   }
                 </h3>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                   isExpense 
-                    ? 'bg-rose-100 text-rose-800 border-rose-300' 
-                    : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    ? 'bg-rose-900/60 text-rose-200 border-rose-700' 
+                    : 'bg-emerald-900/60 text-emerald-200 border-emerald-700'
                 }`}>
                   {isExpense ? 'เงินจ่ายออก (Cr.)' : 'เงินรับเข้า (Dr.)'}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-[11px] text-slate-300 mt-0.5">
                 {isExpense 
-                  ? 'ตัดเงินออกจากบัญชีธนาคาร • ยอดเงินจะบันทึกในช่องเครดิต (Credit)' 
-                  : 'นำเงินเข้าบัญชีธนาคาร • ยอดเงินจะบันทึกในช่องเดบิต (Debit)'
+                  ? 'ตัดเงินออกจากบัญชีธนาคาร • ยอดเงินจะบันทึกในช่องเครดิต (Credit) ในสมุดบัญชี' 
+                  : 'นำเงินเข้าบัญชีธนาคาร • ยอดเงินจะบันทึกในช่องเดบิต (Debit) ในสมุดบัญชี'
                 }
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Body with Scroll */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 text-xs">
-          
-          {/* Dedicated Locked Form Header Indicator - No Switch Tabs to Prevent Confusion */}
-          {isExpense ? (
-            <div className="flex items-center justify-between p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 shadow-xs">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <ArrowDownLeft className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="font-black text-xs text-rose-950 flex items-center gap-1.5">
-                    <span>🔴 แบบฟอร์มบันทึกรายจ่าย (Expense / Cr.)</span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-200 text-rose-900 font-bold">บันทึกเครดิต (Cr.)</span>
-                  </div>
-                  <div className="text-[11px] text-rose-700">
-                    เงินจ่ายออกจากบัญชีธนาคาร • ยอดเงินจะบันทึกเข้าช่อง <strong>เครดิต (Credit)</strong> ในสมุดบัญชี
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 shadow-xs">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#009540] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <ArrowUpRight className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="font-black text-xs text-emerald-950 flex items-center gap-1.5">
-                    <span>🟢 แบบฟอร์มบันทึกรายรับ (Income / Dr.)</span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-200 text-emerald-900 font-bold">บันทึกเดบิต (Dr.)</span>
-                  </div>
-                  <div className="text-[11px] text-emerald-700">
-                    เงินเข้าบัญชีธนาคาร • ยอดเงินจะบันทึกเข้าช่อง <strong>เดบิต (Debit)</strong> ในสมุดบัญชี
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Form Fields */}
-          <form id="ledger-form" onSubmit={handleSubmit} className="space-y-3.5 pt-1">
+        {/* Full Document Canvas */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-8 bg-white text-xs space-y-4 text-slate-900 font-['Sarabun',sans-serif]">
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Date */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">วันที่ทำรายการ *</label>
-                <input
-                  type="date"
-                  required
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#005aa9] font-medium"
-                />
+            {/* Header Document Section */}
+            <div className="border-b-2 border-slate-900 pb-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+              <div className="md:col-span-2 flex items-center gap-3.5">
+                <div className="w-14 h-14 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center shrink-0 shadow-xs">
+                  <BTCLogo className="w-10 h-10" />
+                </div>
+                <div>
+                  <h1 className="text-base font-black text-slate-900 tracking-tight">
+                    {company}
+                  </h1>
+                  <p className="text-[11px] text-slate-600 leading-tight mt-0.5">
+                    31/2 ถนนอินจันทร์ณรงค์ ต.ในเมือง อ.เมือง จ.บุรีรัมย์ 31000<br />
+                    เลขประจำตัวผู้เสียภาษี: <span className="font-mono font-bold text-slate-800">0315559001144</span> • โทร. 044-611134 • สำนักงานใหญ่
+                  </p>
+                </div>
               </div>
 
-              {/* Doc No with contextual label */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  {isExpense ? 'เลขที่ใบสำคัญจ่าย / DBM / PV / เช็ค' : 'เลขที่ใบเสร็จรับเงิน / ใบแจ้งหนี้ / ค่างวด'}
+              <div className="text-left md:text-right border-t md:border-t-0 pt-2 md:pt-0 border-slate-200">
+                <div className="inline-block md:text-right">
+                  <h2 className="text-lg font-black text-slate-900 tracking-tight">
+                    {isExpense ? 'ใบสำคัญจ่ายเงิน' : 'ใบสำคัญรับเงิน'}
+                  </h2>
+                  <div className="text-[11px] font-mono font-bold text-slate-600 uppercase">
+                    {isExpense ? 'PAYMENT VOUCHER (PV)' : 'RECEIPT VOUCHER (RV)'}
+                  </div>
+                  <div className="mt-1">
+                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${
+                      isExpense 
+                        ? 'bg-rose-50 text-rose-800 border-rose-200' 
+                        : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    }`}>
+                      {isExpense ? '🔴 บันทึกเครดิต (Credit / เงินออก)' : '🟢 บันทึกเดบิต (Debit / เงินเข้า)'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Form Fields as Document Information Table */}
+            <form id="ledger-form" onSubmit={handleSubmit} className="space-y-4 pt-1">
+              
+              {/* Document Meta Fields Grid */}
+              <div className="bg-slate-50/70 border border-slate-300 rounded-lg p-3.5 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {/* Date */}
+                  <div>
+                    <label className="font-bold text-slate-800 block mb-1">วันที่ทำรายการ (Date) *</label>
+                    <input
+                      type="date"
+                      required
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#005aa9] font-medium"
+                    />
+                  </div>
+
+                  {/* Doc No */}
+                  <div>
+                    <label className="font-bold text-slate-800 block mb-1">
+                      {isExpense ? 'เลขที่ใบสำคัญจ่าย / DBM / PV / เช็คอ้างอิง' : 'เลขที่ใบเสร็จรับเงิน / ใบแจ้งหนี้ / งวดงาน'}
+                    </label>
+                    <input
+                      type="text"
+                      list="dl-ref-doc-nos"
+                      value={docNo}
+                      onChange={(e) => handleDocNoChange(e.target.value)}
+                      placeholder={isExpense ? "เช่น DBM-2568-001, PV68-08-012" : "เช่น REC-2568-001, งวดที่ 1"}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#005aa9] font-mono font-medium"
+                    />
+                    {isExpense && (
+                      <span className="text-[10px] text-slate-500 mt-0.5 block">
+                        * พิมพ์เลข DBM หรือ PV เพื่อดึงข้อมูลอัตโนมัติ
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {/* Company */}
+                  <SearchableCombobox
+                    label="บริษัท / กิจการร่วมค้า"
+                    required
+                    value={company}
+                    onChange={(val) => setCompany(val)}
+                    options={dynamicCompanies}
+                    datalistId="dl-companies"
+                    placeholder="เลือกหรือพิมพ์ชื่อบริษัท"
+                    allowCustom={true}
+                    accentColor={isExpense ? 'rose' : 'emerald'}
+                  />
+
+                  {/* Bank Account */}
+                  <SearchableCombobox
+                    label={isExpense ? '🔴 ตัดจ่ายจากบัญชีธนาคาร (Source Bank Account)' : '🟢 นำฝากเข้าบัญชีธนาคาร (Target Bank Account)'}
+                    required
+                    value={account}
+                    onChange={(val) => setAccount(val)}
+                    options={dynamicAccounts}
+                    datalistId="dl-bank-accounts"
+                    placeholder="เลือกหรือพิมพ์บัญชีธนาคาร"
+                    allowCustom={true}
+                    accentColor={isExpense ? 'rose' : 'emerald'}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {/* Project */}
+                  <SearchableCombobox
+                    label="โครงการ / หน่วยงาน (Project)"
+                    required
+                    value={project}
+                    onChange={(val) => setProject(val)}
+                    options={dynamicProjects}
+                    datalistId="dl-projects"
+                    placeholder="เลือกหรือพิมพ์ชื่อโครงการ"
+                    allowCustom={true}
+                    accentColor={isExpense ? 'rose' : 'emerald'}
+                  />
+
+                  {/* Category */}
+                  <SearchableCombobox
+                    label={`หมวดหมู่งบประมาณ ${isExpense ? '(รายจ่าย - Expense)' : '(รายรับ - Income)'}`}
+                    required
+                    value={category}
+                    onChange={(val) => setCategory(val)}
+                    options={dynamicCategories}
+                    datalistId="dl-tx-categories"
+                    placeholder="เลือกหรือพิมพ์หมวดหมู่งาน"
+                    allowCustom={true}
+                    accentColor={isExpense ? 'rose' : 'emerald'}
+                  />
+                </div>
+              </div>
+
+              {/* Description / Particulars */}
+              <div className="text-xs">
+                <label className="font-bold text-slate-800 block mb-1">
+                  {isExpense ? 'รายละเอียดรายการ / ผู้รับเงิน / วัตถุประสงค์การจ่าย *' : 'รายละเอียดรายการ / แหล่งที่มา / ผู้ว่าจ้าง *'}
                 </label>
                 <input
                   type="text"
-                  value={docNo}
-                  onChange={(e) => handleDocNoChange(e.target.value)}
-                  placeholder={isExpense ? "เช่น DBM-2568-001, PV68-08-012" : "เช่น REC-2568-001, งวดที่ 1"}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#005aa9] font-mono font-medium"
-                />
-                {isExpense && (
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">
-                    * พิมพ์เลข DBM หรือ PV เพื่อดึงข้อมูลอัตโนมัติ
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Company */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">บริษัท / กิจการร่วมค้า *</label>
-                <select
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#005aa9]"
-                >
-                  {companiesList.map((c, i) => (
-                    <option key={i} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Bank Account */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  {isExpense ? '🔴 ตัดจ่ายจากบัญชีธนาคาร (เงินออก)' : '🟢 นำฝากเข้าบัญชีธนาคาร (เงินเข้า)'} *
-                </label>
-                <select
-                  value={account}
-                  onChange={(e) => setAccount(e.target.value)}
-                  className={`w-full px-3 py-2 bg-slate-50 border rounded-xl focus:ring-2 font-medium ${
-                    isExpense 
-                      ? 'border-rose-200 focus:ring-rose-500' 
-                      : 'border-emerald-200 focus:ring-emerald-500'
-                  }`}
-                >
-                  {accountsList.map((a, i) => (
-                    <option key={i} value={a}>{a}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">
-                {isExpense ? 'รายละเอียดรายจ่าย / ผู้รับเงิน / ร้านค้า *' : 'รายละเอียดรายรับ / แหล่งที่มา / ผู้ว่าจ้าง *'}
-              </label>
-              <input
-                type="text"
-                required
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder={isExpense ? "เช่น ค่าเหล็กเส้น บริษัท เหล็กสยาม จำกัด (ส่งงานสะพาน)" : "เช่น รับค่างวดงานทางหลวงงวดที่ 4 ตอนที่ 2"}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#005aa9] font-medium"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Project */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">โครงการ / หน่วยงาน *</label>
-                <select
-                  value={project}
-                  onChange={(e) => setProject(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#005aa9]"
-                >
-                  {projectsList.map((p, i) => (
-                    <option key={i} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Category (Filtered specifically for Expense vs Income) */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="font-bold text-slate-700">
-                    หมวดหมู่บัญชี {isExpense ? '(รายจ่าย)' : '(รายรับ)'} *
-                  </label>
-                  <span className={`text-[10px] font-semibold ${isExpense ? 'text-rose-600' : 'text-[#009540]'}`}>
-                    {isExpense ? 'หมวดต้นทุนงาน' : 'หมวดรายรับ'}
-                  </span>
-                </div>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className={`w-full px-3 py-2 bg-slate-50 border rounded-xl focus:ring-2 font-medium ${
-                    isExpense 
-                      ? 'border-rose-200 focus:ring-rose-500' 
-                      : 'border-emerald-200 focus:ring-emerald-500'
-                  }`}
-                >
-                  {activeCategories.map((c, i) => (
-                    <option key={i} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Amount Field - Highlighted with Mode Color to Eliminate Errors */}
-            <div className={`p-3 rounded-xl border ${
-              isExpense 
-                ? 'bg-rose-50/50 border-rose-200' 
-                : 'bg-emerald-50/50 border-emerald-200'
-            }`}>
-              <div className="flex items-center justify-between mb-1">
-                <label className={`font-bold flex items-center gap-1.5 ${
-                  isExpense ? 'text-rose-900' : 'text-emerald-900'
-                }`}>
-                  {isExpense ? <ArrowDownLeft className="w-4 h-4 text-rose-600" /> : <ArrowUpRight className="w-4 h-4 text-[#009540]" />}
-                  <span>{isExpense ? 'จำนวนเงินที่จ่าย (บาท - เครดิต Cr.) *' : 'จำนวนเงินที่รับเข้า (บาท - เดบิต Dr.) *'}</span>
-                </label>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                  isExpense 
-                    ? 'bg-rose-100 text-rose-700 border-rose-300' 
-                    : 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                }`}>
-                  {isExpense ? '🔴 ยอดเงินตัดออก' : '🟢 ยอดเงินฝากเข้า'}
-                </span>
-              </div>
-              <div className="relative">
-                <input
-                  type="number"
-                  step="any"
                   required
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0.00"
-                  className={`w-full px-3.5 py-2.5 bg-white border rounded-xl focus:ring-2 text-lg font-black font-mono shadow-inner ${
-                    isExpense 
-                      ? 'border-rose-300 text-rose-700 focus:ring-rose-500 focus:border-rose-500' 
-                      : 'border-emerald-300 text-emerald-700 focus:ring-[#009540] focus:border-[#009540]'
-                  }`}
+                  list="dl-item-descriptions"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={isExpense ? "เช่น ค่าเหล็กเส้น บริษัท เหล็กสยาม จำกัด (ส่งงานสะพาน)" : "เช่น รับค่างวดงานทางหลวงงวดที่ 4 ตอนที่ 2"}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#005aa9] font-medium"
                 />
-                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-slate-400">
-                  THB
-                </span>
               </div>
-            </div>
 
-            {/* Remarks */}
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">หมายเหตุเพิ่มเติม</label>
-              <input
-                type="text"
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                placeholder="หมายเหตุเพิ่มเติม หรือรายละเอียดบัญชีปลายทาง (ถ้ามี)"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#005aa9]"
-              />
-            </div>
-          </form>
-        </div>
+              {/* Financial Particulars Table / Amount Block */}
+              <div className="border border-slate-300 rounded-lg overflow-hidden">
+                <div className="bg-slate-100 px-4 py-2 border-b border-slate-300 flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span>ตารางสรุปจำนวนเงินตามเอกสาร (Particulars & Amount)</span>
+                  <span>สกุลเงิน: บาท (THB)</span>
+                </div>
 
-        {/* Footer Buttons - Clearly themed */}
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
-          <div className="text-[11px] font-medium text-slate-500">
-            สถานะ: {isExpense ? (
-              <span className="text-rose-600 font-bold">🔴 บันทึกรายจ่าย (Cr.)</span>
+                <div className="p-4 bg-white space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                    <div className="md:col-span-2">
+                      <label className="font-bold text-xs text-slate-700 block mb-1">
+                        {isExpense ? 'จำนวนเงินที่จ่ายสุทธิ (Amount Paid - Credit Cr.) *' : 'จำนวนเงินที่รับเข้าสุทธิ (Amount Received - Debit Dr.) *'}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="any"
+                          required
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          placeholder="0.00"
+                          className={`w-full px-4 py-2.5 bg-white border rounded-lg focus:ring-2 text-xl font-black font-mono shadow-inner ${
+                            isExpense 
+                              ? 'border-rose-300 text-rose-700 focus:ring-rose-500' 
+                              : 'border-emerald-300 text-emerald-700 focus:ring-[#009540]'
+                          }`}
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-slate-400">
+                          THB
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className={`p-3 rounded-lg border text-right ${
+                      isExpense ? 'bg-rose-50/60 border-rose-200' : 'bg-emerald-50/60 border-emerald-200'
+                    }`}>
+                      <div className="text-[10px] text-slate-500 font-bold uppercase">ยอดเงินรวมสุทธิ</div>
+                      <div className={`text-xl font-black font-mono mt-0.5 ${
+                        isExpense ? 'text-rose-700' : 'text-emerald-700'
+                      }`}>
+                        {numAmount > 0 ? numAmount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                      </div>
+                      <div className="text-[10px] text-slate-500">บาท (THB)</div>
+                    </div>
+                  </div>
+
+                  {/* Thai Baht text */}
+                  <div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-xs flex items-center gap-2">
+                    <span className="font-bold text-slate-700 whitespace-nowrap">จำนวนเงินตัวอักษร:</span>
+                    <span className="font-bold text-blue-900 tracking-wide">{thaiBahtText}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Remarks */}
+              <div className="text-xs">
+                <label className="font-bold text-slate-800 block mb-1">หมายเหตุเพิ่มเติม / รายละเอียดบัญชีปลายทาง</label>
+                <input
+                  type="text"
+                  list="dl-remarks"
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  placeholder="หมายเหตุเพิ่มเติม หรือรายละเอียดบัญชีปลายทาง (ถ้ามี)"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#005aa9]"
+                />
+              </div>
+
+              {/* Document Signatures Box (ท้ายเอกสาร 2 บล็อกเสมือนจริง) */}
+              <div className="pt-2 border-t border-slate-200">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                  การลงนามรับรองเอกสาร (Signatures & Approvals)
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Block 1: ผู้จัดทำ / ผู้บันทึก */}
+                  <div className="border border-slate-300 rounded-lg p-3 text-center bg-slate-50/50 space-y-2">
+                    <div className="text-xs font-bold text-slate-800">ผู้จัดทำ / ผู้บันทึกรายการ</div>
+                    
+                    <div className="h-10 flex items-center justify-center">
+                      <div className="text-xs font-bold text-blue-800 font-mono bg-blue-50 px-3 py-1 rounded border border-blue-200">
+                        {recordedBy || 'เจ้าหน้าที่การเงินและบัญชี'}
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-slate-600 space-y-0.5">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>(</span>
+                        <input
+                          type="text"
+                          list="dl-requesters"
+                          value={recordedBy}
+                          onChange={(e) => setRecordedBy(e.target.value)}
+                          className="text-center font-medium bg-transparent border-b border-dotted border-slate-400 focus:outline-hidden text-xs text-slate-800 w-44"
+                          placeholder="ชื่อ-สกุลผู้บันทึก"
+                        />
+                        <span>)</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500">เจ้าหน้าที่การเงินและบัญชี</div>
+                      <div className="text-[10px] text-slate-400">วันที่ {date}</div>
+                    </div>
+                  </div>
+
+                  {/* Block 2: ผู้ตรวจสอบและอนุมัติ */}
+                  <div className="border border-slate-300 rounded-lg p-3 text-center bg-slate-50/50 space-y-2">
+                    <div className="text-xs font-bold text-slate-800">ผู้มีอำนาจตรวจสอบ / อนุมัติ</div>
+                    
+                    <div className="h-10 flex items-center justify-center">
+                      <span className="text-[10px] text-slate-400 italic">
+                        [รอผู้มีอำนาจลงนามอนุมัติ]
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] text-slate-600 space-y-0.5">
+                      <div>(....................................................)</div>
+                      <div className="text-[10px] text-slate-500">ผู้จัดการฝ่ายบัญชีและการเงิน</div>
+                      <div className="text-[10px] text-slate-400">วันที่ ......./......./.......</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </form>
+          </div>
+
+        {/* Sticky Bottom Actions Bar */}
+        <div className="px-6 py-3.5 bg-slate-800 border-t border-slate-700 flex items-center justify-between shrink-0 text-white">
+          <div className="text-[11px] font-medium text-slate-300">
+            สถานะเอกสาร: {isExpense ? (
+              <span className="text-rose-400 font-bold">🔴 บันทึกรายจ่าย (Cr.)</span>
             ) : (
-              <span className="text-[#009540] font-bold">🟢 บันทึกรายรับ (Dr.)</span>
+              <span className="text-emerald-400 font-bold">🟢 บันทึกรายรับ (Dr.)</span>
             )}
           </div>
           <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200 font-bold cursor-pointer transition-colors text-xs"
+              className="px-4 py-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700 font-bold cursor-pointer transition-colors text-xs"
             >
               ยกเลิก
             </button>
             <button
               type="submit"
               form="ledger-form"
-              className={`px-5 py-2.5 rounded-xl font-bold text-white shadow-md flex items-center gap-1.5 cursor-pointer transition-all text-xs ${
+              className={`px-5 py-2.5 rounded-xl font-bold text-white shadow-md flex items-center gap-1.5 cursor-pointer transition-all hover:scale-[1.01] text-xs ${
                 isExpense 
-                  ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-700/20' 
-                  : 'bg-[#009540] hover:bg-[#007f36] shadow-emerald-700/20'
+                  ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-900/30' 
+                  : 'bg-[#009540] hover:bg-[#007e36] shadow-emerald-900/30'
               }`}
             >
               <Save className="w-4 h-4" />
               <span>
                 {editingTransaction 
-                  ? 'บันทึกการแก้ไข' 
-                  : isExpense ? '🔴 ยืนยันบันทึกรายจ่าย (Cr.)' : '🟢 ยืนยันบันทึกรายรับ (Dr.)'
+                  ? 'บันทึกการแก้ไขเอกสาร' 
+                  : isExpense ? '🔴 บันทึกใบสำคัญจ่าย (Save PV)' : '🟢 บันทึกใบสำคัญรับ (Save RV)'
                 }
               </span>
             </button>

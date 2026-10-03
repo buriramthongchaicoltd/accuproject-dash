@@ -34,7 +34,6 @@ interface DashboardViewProps {
   disbursements?: Disbursement[];
   todoTasks?: TodoTask[];
   userRole?: UserRole;
-  onUnlockExecutive?: () => void;
   onNavigateTab: (tab: ViewTab) => void;
   onFilterProject?: (projectName: string) => void;
   onRescheduleDisbursement?: (id: string, newDueDate: string, reason: string, rescheduledBy: string) => void;
@@ -45,9 +44,10 @@ export function DashboardView({
   disbursements = [], 
   todoTasks = [],
   userRole = 'executive',
-  onUnlockExecutive,
   onNavigateTab, 
 }: DashboardViewProps) {
+  const isExecutive = userRole === 'admin' || userRole === 'manager' || userRole === 'executive';
+
   // 1. High-Level Treasury & Cash Position (Calculated from GL transactions)
   const accountBalances = useMemo(() => computeAccountBalances(transactions), [transactions]);
   const totalCash = useMemo(() => accountBalances.reduce((sum, a) => sum + a.calculatedBalance, 0), [accountBalances]);
@@ -187,17 +187,6 @@ export function DashboardView({
         </div>
 
         <div className="flex items-center gap-2">
-          {userRole !== 'executive' && onUnlockExecutive && (
-            <button
-              onClick={onUnlockExecutive}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-xs transition-all cursor-pointer"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>สิทธิ์ผู้บริหาร</span>
-            </button>
-          )}
-
-
         </div>
       </div>
 
@@ -217,11 +206,11 @@ export function DashboardView({
               </span>
             </div>
             <div className="mt-2 font-mono text-xl font-black text-slate-900">
-              {userRole === 'executive' ? formatCurrency(totalCash) : '••••••••'}
+              {isExecutive ? formatCurrency(totalCash) : '••••••••'}
             </div>
             <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-              <span>รับ: <strong className="text-emerald-700">{userRole === 'executive' ? formatCurrency(totalIn) : '••••'}</strong></span>
-              <span>จ่าย: <strong className="text-rose-700">{userRole === 'executive' ? formatCurrency(totalOut) : '••••'}</strong></span>
+              <span>รับ: <strong className="text-emerald-700">{isExecutive ? formatCurrency(totalIn) : '••••'}</strong></span>
+              <span>จ่าย: <strong className="text-rose-700">{isExecutive ? formatCurrency(totalOut) : '••••'}</strong></span>
             </div>
           </div>
 

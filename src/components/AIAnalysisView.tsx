@@ -39,7 +39,6 @@ import {
 interface AIAnalysisViewProps {
   transactions: Transaction[];
   userRole?: UserRole;
-  onUnlockExecutive?: () => void;
   onNavigateTab?: (tab: ViewTab) => void;
   onFilterProject?: (project: string) => void;
 }
@@ -47,7 +46,6 @@ interface AIAnalysisViewProps {
 export function AIAnalysisView({
   transactions,
   userRole = 'executive',
-  onUnlockExecutive,
   onNavigateTab,
   onFilterProject
 }: AIAnalysisViewProps) {
@@ -55,8 +53,10 @@ export function AIAnalysisView({
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState('all');
   const [searchProject, setSearchProject] = useState('');
 
+  const isExecutive = userRole === 'admin' || userRole === 'manager' || userRole === 'executive';
+
   // Gate for non-executives
-  if (userRole !== 'executive') {
+  if (!isExecutive) {
     return (
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-8 text-center max-w-lg mx-auto my-12 space-y-4">
         <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mx-auto">
@@ -67,19 +67,18 @@ export function AIAnalysisView({
             AI วิเคราะห์งบการเงิน & สภาพคล่ององค์กร
           </h2>
           <span className="inline-block mt-1 px-3 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-            🔒 สงวนสิทธิ์การเข้าถึงเฉพาะผู้บริหารระดับสูง (Executive Only)
+            🔒 สงวนสิทธิ์เฉพาะผู้บริหาร (Admin / Manager Only)
           </span>
           <p className="text-xs text-slate-500 mt-2 leading-relaxed">
             หน้านี้ประกอบด้วยการวิเคราะห์กระแสเงินสดเชิงลึก, วงเงินเบิกเกินบัญชี (OD), ยอดคงเหลือทุกบัญชีธนาคาร และการประเมิน Cash Runway สำหรับการวางแผนกลยุทธ์
           </p>
         </div>
-        {onUnlockExecutive && (
+        {onNavigateTab && (
           <button
-            onClick={onUnlockExecutive}
-            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
+            onClick={() => onNavigateTab('disbursements')}
+            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-[#005aa9] hover:bg-[#004a8c] text-white shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            <Lock className="w-4 h-4" />
-            <span>ปลดล็อกสิทธิ์ผู้บริหาร (รหัสผ่านเริ่มต้น: 1234)</span>
+            <span>กลับสู่หน้ารายการขอเบิกเงิน</span>
           </button>
         )}
       </div>

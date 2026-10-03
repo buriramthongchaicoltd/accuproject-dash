@@ -340,7 +340,7 @@ export function ReportsView({ transactions, onExportCSV }: ReportsViewProps) {
               {selectedCompanyFilter === 'all' ? 'กลุ่มบริษัท บุรีรัมย์ธงชัยก่อสร้าง จำกัด และ กิจการร่วมค้า' : selectedCompanyFilter}
             </h1>
             <p className="text-[11px] text-slate-500">
-              ข้อมูลอ้างอิงจากสมุดรายวันบัญชีบริษัท • โทร: 044-611835 • วันที่พิมพ์: {new Date().toLocaleDateString('th-TH')}
+              ข้อมูลอ้างอิงจากสมุดรายวันบัญชีบริษัท • โทร: 044-611134 • วันที่พิมพ์: {new Date().toLocaleDateString('th-TH')}
             </p>
           </div>
 

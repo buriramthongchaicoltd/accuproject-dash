@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { ProjectBOQItem, BOQMaterialItem } from '../types';
 import { formatCurrency } from '../utils/accounting';
+import { SearchableCombobox } from './SearchableCombobox';
 
 interface BOQManagementViewProps {
   boqItems: ProjectBOQItem[];
@@ -1014,6 +1015,23 @@ function AddBOQModal({
   const [engineerQty, setEngineerQty] = useState<number>(1000);
   const [engineerUnitCost, setEngineerUnitCost] = useState<number>(1200);
 
+  const commonWorkCategories = [
+    'งานถางป่าและขุดตอ',
+    'งานขุดดินและตัดคันทาง',
+    'งานถมคันทางด้วยวัสดุคัดเลือก',
+    'งานรองพื้นทาง (Subbase)',
+    'งานพื้นทางหินคลุก (Crushed Rock Base)',
+    'งานผิวทางแอสฟัลต์คอนกรีต Binder Course',
+    'งานผิวทางแอสฟัลต์คอนกรีต Wearing Course',
+    'งานวางท่อระบายน้ำ คสล. ชั้น 3 dia 1.00 ม.',
+    'งานท่อเหลี่ยม คสล.',
+    'งานทางเท้าและคันหิน คสล.',
+    'งานไฟฟ้าส่องสว่างและหม้อแปลง',
+    'งานป้ายจราจรและตีเส้นเทอร์โมพลาสติก'
+  ];
+
+  const commonUnits = ['ม.', 'ตร.ม.', 'ลบ.ม.', 'ตัน', 'จุด', 'แห่ง', 'ชุด', 'กม.', 'งาน'];
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1048,17 +1066,16 @@ function AddBOQModal({
 
         <form onSubmit={handleSubmit} className="py-3 text-xs space-y-3">
           <div>
-            <label className="block text-slate-700 font-bold mb-1">เลือกโครงการ *</label>
-            <select
-              value={project}
-              onChange={e => setProject(e.target.value)}
+            <SearchableCombobox
+              label="เลือกโครงการ"
               required
-              className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs bg-white"
-            >
-              {uniqueProjects.map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
+              value={project}
+              onChange={(val) => setProject(val)}
+              options={uniqueProjects}
+              placeholder="เลือกหรือพิมพ์โครงการ"
+              allowCustom={true}
+              accentColor="blue"
+            />
           </div>
 
           <div className="grid grid-cols-3 gap-2">
@@ -1074,27 +1091,29 @@ function AddBOQModal({
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-slate-700 font-bold mb-1">หน่วยนับ *</label>
-              <input
-                type="text"
-                placeholder="เช่น ม., ลบ.ม., ตร.ม., จุด"
+              <SearchableCombobox
+                label="หน่วยนับ"
                 required
                 value={unit}
-                onChange={e => setUnit(e.target.value)}
-                className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs"
+                onChange={(val) => setUnit(val)}
+                options={commonUnits}
+                placeholder="เลือกหรือพิมพ์หน่วยนับ"
+                allowCustom={true}
+                accentColor="blue"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-slate-700 font-bold mb-1">รายการงาน / ขอบเขตงาน *</label>
-            <input
-              type="text"
-              placeholder="เช่น งานวางท่อระบายน้ำ คสล. มอก. dia 1.00 ม."
+            <SearchableCombobox
+              label="รายการงาน / ขอบเขตงาน"
               required
               value={description}
-              onChange={e => setDescription(e.target.value)}
-              className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs"
+              onChange={(val) => setDescription(val)}
+              options={commonWorkCategories}
+              placeholder="เลือกหรือพิมพ์รายละเอียดงาน"
+              allowCustom={true}
+              accentColor="blue"
             />
           </div>
 
@@ -1212,6 +1231,23 @@ function EditBOQModal({
   const [engineerQty, setEngineerQty] = useState(boqItem.engineerQty);
   const [engineerUnitCost, setEngineerUnitCost] = useState(boqItem.engineerUnitCost);
 
+  const commonWorkCategories = [
+    'งานถางป่าและขุดตอ',
+    'งานขุดดินและตัดคันทาง',
+    'งานถมคันทางด้วยวัสดุคัดเลือก',
+    'งานรองพื้นทาง (Subbase)',
+    'งานพื้นทางหินคลุก (Crushed Rock Base)',
+    'งานผิวทางแอสฟัลต์คอนกรีต Binder Course',
+    'งานผิวทางแอสฟัลต์คอนกรีต Wearing Course',
+    'งานวางท่อระบายน้ำ คสล. ชั้น 3 dia 1.00 ม.',
+    'งานท่อเหลี่ยม คสล.',
+    'งานทางเท้าและคันหิน คสล.',
+    'งานไฟฟ้าส่องสว่างและหม้อแปลง',
+    'งานป้ายจราจรและตีเส้นเทอร์โมพลาสติก'
+  ];
+
+  const commonUnits = ['ม.', 'ตร.ม.', 'ลบ.ม.', 'ตัน', 'จุด', 'แห่ง', 'ชุด', 'กม.', 'งาน'];
+
   if (!isOpen) return null;
 
   const contractTotal = contractQty * contractUnitRate;
@@ -1254,17 +1290,16 @@ function EditBOQModal({
           {/* Row 1: Project & WBS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">โครงการ</label>
-              <select
-                value={project}
-                onChange={e => setProject(e.target.value)}
+              <SearchableCombobox
+                label="โครงการ"
                 required
-                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500"
-              >
-                {uniqueProjects.map(p => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
+                value={project}
+                onChange={(val) => setProject(val)}
+                options={uniqueProjects}
+                placeholder="เลือกหรือพิมพ์โครงการ"
+                allowCustom={true}
+                accentColor="blue"
+              />
             </div>
 
             <div>
@@ -1283,24 +1318,28 @@ function EditBOQModal({
           {/* Row 2: Description & Unit */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
-              <label className="block font-semibold text-slate-700 mb-1">รายการงาน (Description)</label>
-              <input
-                type="text"
+              <SearchableCombobox
+                label="รายการงาน (Description)"
                 required
                 value={description}
-                onChange={e => setDescription(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500"
+                onChange={(val) => setDescription(val)}
+                options={commonWorkCategories}
+                placeholder="เลือกหรือพิมพ์รายละเอียดงาน"
+                allowCustom={true}
+                accentColor="blue"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">หน่วยนับ</label>
-              <input
-                type="text"
+              <SearchableCombobox
+                label="หน่วยนับ"
                 required
                 value={unit}
-                onChange={e => setUnit(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:ring-2 focus:ring-blue-500"
+                onChange={(val) => setUnit(val)}
+                options={commonUnits}
+                placeholder="เลือกหรือพิมพ์หน่วยนับ"
+                allowCustom={true}
+                accentColor="blue"
               />
             </div>
           </div>
@@ -1425,6 +1464,23 @@ function AddMaterialModal({
   const [unit, setUnit] = useState('ชิ้น');
   const [unitPrice, setUnitPrice] = useState<number>(100);
 
+  const commonMaterials = [
+    'ท่อ คสล. มอก. ชั้น 3 dia 1.00 ม.',
+    'ยางแอสฟัลต์คอนกรีต AC 60/70',
+    'คอนกรีตผสมเสร็จ 240 ksc',
+    'คอนกรีตผสมเสร็จ 280 ksc',
+    'หินคลุก (Crushed Rock Base)',
+    'ทรายหยาบถมคันทาง',
+    'ลูกรังคัดเลือก (Select Material)',
+    'เหล็กเส้นกลม RB9 มอก.',
+    'เหล็กข้ออ้อย DB12 มอก.',
+    'เหล็กข้ออ้อย DB16 มอก.',
+    'สีเทอร์โมพลาสติกสะท้อนแสง',
+    'เสาไฟฟ้ากิ่งเดี่ยว 9 ม.'
+  ];
+
+  const commonUnits = ['ชิ้น', 'ท่อน', 'ลบ.ม.', 'ตัน', 'กก.', 'ตร.ม.', 'ชุด', 'เส้น', 'ถุง'];
+
   if (!isOpen) return null;
 
   const totalRequiredQty = (boqItem.engineerQty || boqItem.contractQty) * standardRatioPerUnit;
@@ -1463,14 +1519,15 @@ function AddMaterialModal({
           </div>
 
           <div>
-            <label className="block text-slate-700 font-bold mb-1">ชื่อรายการวัสดุ *</label>
-            <input
-              type="text"
-              placeholder="เช่น ท่อ คสล. มอก. ชั้น 3, ยางแอสฟัลต์, คอนกรีตผสมเสร็จ"
+            <SearchableCombobox
+              label="ชื่อรายการวัสดุ"
               required
               value={materialName}
-              onChange={e => setMaterialName(e.target.value)}
-              className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs"
+              onChange={(val) => setMaterialName(val)}
+              options={commonMaterials}
+              placeholder="เลือกหรือพิมพ์ชื่อวัสดุ"
+              allowCustom={true}
+              accentColor="blue"
             />
           </div>
 
@@ -1489,14 +1546,15 @@ function AddMaterialModal({
               <span className="text-[10px] text-slate-400 mt-0.5 block">เช่น 1 ม. ใช้ 1.0 ท่อน</span>
             </div>
             <div>
-              <label className="block text-slate-700 font-bold mb-1">หน่วยนับวัสดุ *</label>
-              <input
-                type="text"
-                placeholder="เช่น ท่อน, ลบ.ม., กก., ตัน"
+              <SearchableCombobox
+                label="หน่วยนับวัสดุ"
                 required
                 value={unit}
-                onChange={e => setUnit(e.target.value)}
-                className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs"
+                onChange={(val) => setUnit(val)}
+                options={commonUnits}
+                placeholder="เลือกหรือพิมพ์หน่วยนับ"
+                allowCustom={true}
+                accentColor="blue"
               />
             </div>
           </div>

@@ -90,10 +90,12 @@ export interface MonthlyFinancialSummary {
 export interface DisbursementAttachment {
   id: string;
   name: string;
-  url: string; // Data URL or Web link
+  url: string; // Data URL or Web link (e.g. Google Drive webViewLink)
   type: 'image' | 'pdf' | 'document';
   size?: number;
   uploadedAt: string;
+  driveFileId?: string; // Google Drive File ID for direct management and clean-up
+  storageProvider?: 'drive' | 'local';
 }
 
 export interface DisbursementItem {
@@ -172,9 +174,42 @@ export interface Disbursement {
   rescheduledBy?: string; // ผู้สั่งเลื่อน
 }
 
-export type ViewTab = 'dashboard' | 'payment' | 'disbursements' | 'subcontracts' | 'projects' | 'transactions' | 'reports' | 'accounts' | 'tax_summary' | 'todoist' | 'ai_analysis' | 'boq' | 'procurement' | 'supplier_billing';
+export type ViewTab = 
+  | 'dashboard' 
+  | 'payment' 
+  | 'disbursements' 
+  | 'subcontracts' 
+  | 'projects' 
+  | 'transactions' 
+  | 'reports' 
+  | 'accounts' 
+  | 'tax_summary' 
+  | 'todoist' 
+  | 'ai_analysis' 
+  | 'boq' 
+  | 'procurement' 
+  | 'supplier_billing' 
+  | 'document_templates'
+  | 'user_management';
 
-export type UserRole = 'executive' | 'staff';
+export type UserRole = 'admin' | 'manager' | 'user' | 'executive' | 'staff';
+
+export interface AppUser {
+  id: string;
+  username: string;
+  name: string;
+  roleTitle: string;
+  department: string;
+  email?: string;
+  role: 'admin' | 'manager' | 'user';
+  password?: string;
+  pin?: string;
+  isActive: boolean;
+  allowedTabs?: ViewTab[];
+  avatar?: string;
+  lastLoginAt?: string;
+  createdAt: string;
+}
 
 // ==========================================
 // Procurement, RFQ & Material Backcharge
@@ -412,6 +447,24 @@ export interface Subcontract {
   startDate: string;
   endDate: string;
   status: 'active' | 'completed' | 'terminated';
+
+  // ข้อมูลทางนิติกรรมสัญญาเพิ่มเติม (Legal & Execution Details)
+  contractDate?: string; // วันที่ทำสัญญา เช่น "15 ธันวาคม 2568"
+  contractLocation?: string; // สถานที่ทำสัญญา
+  contractLocationAddress?: string; // ที่อยู่สถานที่ทำสัญญา
+  employerName?: string; // ชื่อผู้ว่าจ้าง เช่น "บริษัท บุรีรัมย์ธงชัยก่อสร้าง จำกัด"
+  employerRep?: string; // ตัวแทนผู้ว่าจ้างผู้ลงนาม เช่น "นายวิชัย นพสุวรรณวงศ์"
+  employerPosition?: string; // ตำแหน่งผู้ว่าจ้าง เช่น "กรรมการผู้จัดการ"
+  employerAddress?: string; // ที่อยู่ผู้ว่าจ้าง
+  contractorRep?: string; // ตัวแทนผู้รับจ้างผู้ลงนาม เช่น "นายปิยะพงษ์ สิทธิชัย"
+  contractorPosition?: string; // ตำแหน่งตัวแทนผู้รับจ้าง เช่น "หุ้นส่วนผู้จัดการ"
+  contractorAddress?: string; // ที่อยู่ตามทะเบียนของผู้รับจ้าง
+  dailyPenalty?: number; // เบี้ยปรับล่าช้าต่อวัน (บาท/วัน) เช่น 3000
+  dailyPenaltyText?: string; // คำอ่านเบี้ยปรับ เช่น "สามพันบาทถ้วน"
+  paymentDueDay?: number; // กำหนดจ่ายเงินทุกวันที่...ของเดือน
+  depositAmount?: number; // เงินมัดจำ/จ่ายล่วงหน้า
+  installmentCount?: number; // จำนวนงวดงาน
+  workDurationMonths?: number; // ระยะเวลาก่อสร้าง (เดือน)
 
   // สรุปยอดสะสม
   totalInspectedQty: number;

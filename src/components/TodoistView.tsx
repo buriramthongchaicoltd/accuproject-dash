@@ -1,6 +1,8 @@
 import React, { useState, useMemo, FormEvent } from 'react';
 import { TodoTask, ViewTab } from '../types';
 import { formatCurrency } from '../utils/accounting';
+import { SearchableCombobox } from './SearchableCombobox';
+import { getActiveUserName } from '../services/userService';
 import { 
   CheckSquare, 
   Square, 
@@ -63,7 +65,51 @@ export function TodoistView({
   const [amount, setAmount] = useState<string>('');
   const [project, setProject] = useState<string>('(38)ทล.24 อ.ปราสาท-อ.สังขะ ตอน2 จ.สุรินทร์ (ปี2568)');
   const [company, setCompany] = useState<string>('บจก. บุรีรัมย์ธงชัยก่อสร้าง');
-  const [assignedTo, setAssignedTo] = useState('');
+  const [assignedTo, setAssignedTo] = useState<string>(() => getActiveUserName());
+
+  const commonTaskTemplates = [
+    'ยื่นแบบและชำระ ภ.ง.ด.1 (หัก ณ ที่จ่ายเงินเดือน)',
+    'ยื่นแบบและชำระ ภ.ง.ด.3 (หัก ณ ที่จ่ายบุคคลธรรมดา)',
+    'ยื่นแบบและชำระ ภ.ง.ด.53 (หัก ณ ที่จ่ายนิติบุคคล)',
+    'ยื่นแบบและชำระ ภ.พ.30 (ภาษีมูลค่าเพิ่ม VAT)',
+    'นำส่งเงินสมทบกองทุนประกันสังคม (สปส. 1-10)',
+    'จ่ายเงินเดือนพนักงานประจำงวดสิ้นเดือน',
+    'จ่ายค่าแรงงานรายวันคนงานไซต์ก่อสร้าง',
+    'ตรวจรับค่างวดงานผู้รับเหมาช่วง (Subcontract)',
+    'จ่ายค่างวดงานผู้รับเหมาช่วง',
+    'ตัดจ่ายเช็คซัพพลายเออร์ค่าวัสดุก่อสร้าง',
+    'ขอคืนเงินประกันผลงานสัญญาจ้าง (Retention)',
+    'ต่ออายุหนังสือค้ำประกันสัญญา (Bank Guarantee)'
+  ];
+
+  const uniqueProjects = useMemo(() => {
+    const fromTasks = tasks.map(t => t.project).filter((p): p is string => Boolean(p));
+    const defaults = [
+      '(38)ทล.24 อ.ปราสาท-อ.สังขะ ตอน2 จ.สุรินทร์ (ปี2568)',
+      '(39)ทล.214 สาย อ.ปราสาท-บ.ระแงง จ.สุรินทร์',
+      '(40)โครงการก่อสร้างทางเลี่ยงเมืองบุรีรัมย์',
+      '(41)งานปรับปรุงผิวจราจร แอสฟัลต์คอนกรีต สาย 226',
+      'สำนักงานใหญ่ / ส่วนกลาง'
+    ];
+    return Array.from(new Set([...fromTasks, ...defaults]));
+  }, [tasks]);
+
+  const groupCompanies = [
+    'บจก. บุรีรัมย์ธงชัยก่อสร้าง',
+    'บจก. บุรีรัมย์ธงชัยพัฒนา',
+    'บจก. บีทีซี เพิ่มพูนทรัพย์ คอนกรีต',
+    'บจก. ไทย บุรีรัมย์ ธงชัยการก่อสร้าง'
+  ];
+
+  const commonAssignees = [
+    'ฝ่ายการเงินและบัญชี',
+    'ฝ่ายบุคคล (HR)',
+    'ฝ่ายจัดซื้อ',
+    'วิศวกรภาคสนาม',
+    'ผู้จัดการโครงการ',
+    'ฝ่ายนิติการ/สัญญา',
+    'ผู้บริหาร'
+  ];
 
   // Reschedule Task Modal State
   const [reschedulingTask, setReschedulingTask] = useState<TodoTask | null>(null);
@@ -699,16 +745,16 @@ export function TodoistView({
 
             <form onSubmit={handleSubmitNewTask} className="p-4 space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  ชื่องาน / ภาระผูกพัน *
-                </label>
-                <input
-                  type="text"
+                <SearchableCombobox
+                  label="ชื่องาน / ภาระผูกพัน"
                   required
-                  placeholder="เช่น ยื่นแบบ ภ.ง.ด.1, จ่ายเงินเดือน, คืนเงินประกันผลงาน"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#005aa9]"
+                  onChange={(val) => setTitle(val)}
+                  options={commonTaskTemplates}
+                  datalistId="dl-todo-titles"
+                  placeholder="เลือกหรือพิมพ์ชื่องาน/ภาระผูกพัน"
+                  allowCustom={true}
+                  accentColor="blue"
                 />
               </div>
 
@@ -791,33 +837,43 @@ export function TodoistView({
                 </div>
               </div>
 
+              <div>
+                <SearchableCombobox
+                  label="โครงการที่เกี่ยวข้อง"
+                  value={project}
+                  onChange={(val) => setProject(val)}
+                  options={uniqueProjects}
+                  datalistId="dl-projects"
+                  placeholder="เลือกหรือระบุโครงการ"
+                  allowCustom={true}
+                  accentColor="blue"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    บริษัทในเครือ
-                  </label>
-                  <select
+                  <SearchableCombobox
+                    label="บริษัทในเครือ"
                     value={company}
-                    onChange={(e) => setCompany(e.target.value)}
-                    className="w-full text-xs px-3 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#005aa9]"
-                  >
-                    <option value="บจก. บุรีรัมย์ธงชัยก่อสร้าง">บจก. บุรีรัมย์ธงชัยก่อสร้าง (BTC)</option>
-                    <option value="บจก. บุรีรัมย์ธงชัยพัฒนา">บจก. บุรีรัมย์ธงชัยพัฒนา (BTCP)</option>
-                    <option value="บจก. บีทีซี เพิ่มพูนทรัพย์ คอนกรีต">บจก. บีทีซี เพิ่มพูนทรัพย์ คอนกรีต (BTC-PC)</option>
-                    <option value="บจก. ไทย บุรีรัมย์ ธงชัยการก่อสร้าง">บจก. ไทย บุรีรัมย์ ธงชัยการก่อสร้าง (TBTC)</option>
-                  </select>
+                    onChange={(val) => setCompany(val)}
+                    options={groupCompanies}
+                    datalistId="dl-companies"
+                    placeholder="เลือกบริษัท"
+                    allowCustom={true}
+                    accentColor="blue"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    ผู้รับผิดชอบ
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="เช่น ฝ่ายการเงิน, ฝ่ายบุคคล, ช่างคุมงาน"
+                  <SearchableCombobox
+                    label="ผู้รับผิดชอบ"
                     value={assignedTo}
-                    onChange={(e) => setAssignedTo(e.target.value)}
-                    className="w-full text-xs px-3 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#005aa9]"
+                    onChange={(val) => setAssignedTo(val)}
+                    options={commonAssignees}
+                    datalistId="dl-assignees"
+                    placeholder="เลือกหรือระบุผู้รับผิดชอบ"
+                    allowCustom={true}
+                    accentColor="blue"
                   />
                 </div>
               </div>
@@ -884,6 +940,7 @@ export function TodoistView({
                 </label>
                 <input
                   type="text"
+                  list="dl-remarks"
                   placeholder="เช่น รอเอกสารประกอบจากสรรพากร, เลื่อนตามรอบเงินเดือน"
                   value={rescheduleReason}
                   onChange={(e) => setRescheduleReason(e.target.value)}

@@ -13,18 +13,26 @@ import { ReportsView } from './components/ReportsView';
 import { TodoistView } from './components/TodoistView';
 import { NewTransactionModal } from './components/NewTransactionModal';
 import { NewDisbursementModal } from './components/NewDisbursementModal';
-import { RecordTransferModal } from './components/RecordTransferModal';
+import { RecordPaymentModal } from './components/RecordPaymentModal';
 import { DisbursementDetailModal } from './components/DisbursementDetailModal';
 import { ReviewApprovalModal } from './components/ReviewApprovalModal';
 import { AIAssistantModal } from './components/AIAssistantModal';
 import { AIAnalysisView } from './components/AIAnalysisView';
 import { CSVImportModal, ImportTarget } from './components/CSVImportModal';
 import { SupabaseStatusModal } from './components/SupabaseStatusModal';
-import { ExecutiveAuthModal } from './components/ExecutiveAuthModal';
+import { UserProfileModal } from './components/UserProfileModal';
+import { GoogleMasterSyncModal } from './components/GoogleMasterSyncModal';
+import { getAccessToken, initAuth } from './services/googleAuthService';
+import { cleanupOrphanedDriveAttachments, deleteFileFromDrive } from './services/googleDriveService';
 import { SubcontractView } from './components/SubcontractView';
 import { BOQManagementView } from './components/BOQManagementView';
 import { ProcurementView } from './components/ProcurementView';
 import { SupplierBillingView } from './components/SupplierBillingView';
+import { DocumentTemplatesView } from './components/DocumentTemplatesView';
+import { LoginView } from './components/LoginView';
+import { UserManagementView } from './components/UserManagementView';
+import { getCurrentUser, logoutUser, hasTabPermission } from './services/userService';
+import { AppUser } from './types';
 import { 
   Subcontract, 
   SubcontractInspection, 
@@ -66,7 +74,8 @@ import {
   deleteTodoTask
 } from './services/supabaseService';
 import { isSupabaseConfigured, getIsSupabaseConfigured } from './lib/supabase';
-import { AlertTriangle, Database, Loader2 } from 'lucide-react';
+import { AlertTriangle, Database, Loader2, Lock, ShieldAlert } from 'lucide-react';
+import { DatabaseSuggestionsProvider } from './context/DatabaseSuggestionsContext';
 
 export default function App() {
   // Real data state stored 100% in Supabase - No localStorage, No mock datasets
@@ -189,7 +198,14 @@ export default function App() {
   const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
   const [isConfigured, setIsConfigured] = useState<boolean>(getIsSupabaseConfigured());
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState<boolean>(false);
+  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState<boolean>(false);
+  const [isGoogleConnected, setIsGoogleConnected] = useState<boolean>(false);
   const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
+
+  // Check Google token on mount
+  useEffect(() => {
+    getAccessToken().then(token => setIsGoogleConnected(Boolean(token)));
+  }, []);
 
   // Navigation and UI state
   const [currentTab, setCurrentTab] = useState<ViewTab>('dashboard');
@@ -222,20 +238,50 @@ export default function App() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importTarget, setImportTarget] = useState<ImportTarget>('auto');
 
-  // Executive Role-Based Access Control (RBAC)
+  // Authentication & Role-Based Access Control (RBAC)
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => getCurrentUser());
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => Boolean(getCurrentUser()));
+
   const [userRole, setUserRole] = useState<UserRole>(() => {
-    return (localStorage.getItem('btc_user_role') as UserRole) || 'executive';
+    const user = getCurrentUser();
+    return user ? user.role : ((localStorage.getItem('btc_user_role') as UserRole) || 'admin');
   });
-  const [isExecutiveAuthModalOpen, setIsExecutiveAuthModalOpen] = useState(false);
+  const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
 
   const handleRoleChange = (newRole: UserRole) => {
     setUserRole(newRole);
     localStorage.setItem('btc_user_role', newRole);
+    if (currentUser) {
+      const updatedUser: AppUser = {
+        ...currentUser,
+        role: newRole === 'admin' ? 'admin' : newRole === 'manager' ? 'manager' : 'user'
+      };
+      setCurrentUser(updatedUser);
+    }
     showToast(
-      newRole === 'executive' 
-        ? '👑 เข้าสู่โหมดผู้บริหาร: เปิดการมองเห็นยอดเงินทุกบัญชีแล้ว' 
-        : '🔒 สลับเข้าสู่โหมดพนักงาน: ซ่อนยอดเงินและบัญชีธนาคารแล้ว'
+      newRole === 'admin' 
+        ? '👑 เข้าสู่โหมด Admin: สิทธิ์เต็มรูปแบบ 100%' 
+        : newRole === 'manager' || newRole === 'executive'
+          ? '💼 เข้าสู่โหมด Manager: สิทธิ์ผู้บริหารและอนุมัติเอกสาร'
+          : '🔒 สลับเข้าสู่โหมด User: ซ่อนยอดเงินและบัญชีธนาคารแล้ว'
     );
+  };
+
+  const handleLoginSuccess = (user: AppUser) => {
+    setCurrentUser(user);
+    setUserRole(user.role);
+    setIsLoggedIn(true);
+    showToast(`ยินดีต้อนรับ ${user.name} เข้าสู่ระบบ (${user.role.toUpperCase()})`);
+    if (!hasTabPermission(user, currentTab)) {
+      setCurrentTab(user.role === 'user' ? 'disbursements' : 'dashboard');
+    }
+  };
+
+  const handleLogout = () => {
+    logoutUser();
+    setCurrentUser(null);
+    setIsLoggedIn(false);
+    showToast('ออกจากระบบเรียบร้อยแล้ว');
   };
 
   // Toast notification
@@ -376,6 +422,15 @@ export default function App() {
   const handleSaveDisbursement = async (data: Omit<Disbursement, 'id'>, existingId?: string) => {
     let targetDbm: Disbursement;
     if (existingId) {
+      // Find old disbursement to check for removed attachments (Garbage Collection)
+      const oldDbm = disbursements.find(d => d.id === existingId);
+      if (oldDbm && oldDbm.attachments && oldDbm.attachments.length > 0) {
+        const newAtts = data.attachments || [];
+        cleanupOrphanedDriveAttachments(oldDbm.attachments, newAtts).then(cleaned => {
+          if (cleaned > 0) console.log(`[Google Drive GC] Cleaned up ${cleaned} orphaned files`);
+        }).catch(console.error);
+      }
+
       targetDbm = {
         ...data,
         id: existingId
@@ -403,6 +458,16 @@ export default function App() {
   };
 
   const handleDeleteDisbursement = async (id: string) => {
+    const targetDbm = disbursements.find(d => d.id === id);
+    // Cleanup any Drive files attached to this deleted disbursement
+    if (targetDbm && targetDbm.attachments && targetDbm.attachments.length > 0) {
+      targetDbm.attachments.forEach(att => {
+        if (att.driveFileId) {
+          deleteFileFromDrive(att.driveFileId).catch(console.error);
+        }
+      });
+    }
+
     setDisbursements(prev => prev.filter(d => d.id !== id));
     // Synchronously clean up any linked transaction in the General Ledger
     setTransactions(prev => prev.filter(t => t.disbursementId !== id && t.id !== `tx_pv_${id}` && t.id !== `tx_dbm_${id}`));
@@ -1296,8 +1361,25 @@ export default function App() {
     showToast(`✅ บันทึกตรวจรับพัสดุ ${newGR.grNo} (${newGR.materialDescription}) สำเร็จ`);
   };
 
+  // If user is not logged in, show full-screen corporate Login View
+  if (!isLoggedIn || !currentUser) {
+    return <LoginView onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
-    <div className="flex h-screen bg-slate-100/70 text-slate-900 font-['Sarabun',sans-serif] overflow-hidden antialiased">
+    <DatabaseSuggestionsProvider
+      transactions={transactions}
+      disbursements={disbursements}
+      subcontracts={subcontracts}
+      inspections={inspections}
+      paymentClaims={paymentClaims}
+      backcharges={backcharges}
+      goodsReceipts={goodsReceipts}
+      billings={supplierBillings}
+      rfqItems={rfqs}
+      todoTasks={todoTasks}
+    >
+      <div className="flex h-screen bg-slate-100/70 text-slate-900 font-['Sarabun',sans-serif] overflow-hidden antialiased">
       
       {/* Toast Notification */}
       {toastMessage && (
@@ -1321,8 +1403,10 @@ export default function App() {
         }}
         onOpenSupabaseSettings={() => setIsSupabaseModalOpen(true)}
         isSupabaseConnected={isConfigured}
+        onOpenGoogleMasterSync={() => setIsGoogleModalOpen(true)}
+        isGoogleConnected={isGoogleConnected}
         userRole={userRole}
-        onOpenAuthModal={() => setIsExecutiveAuthModalOpen(true)}
+        currentUser={currentUser}
         totalTransactionsCount={transactions.length}
         pendingTasksCount={pendingTasksCount}
         disbursementsCount={disbursements.length}
@@ -1346,7 +1430,9 @@ export default function App() {
           isSupabaseConnected={isConfigured}
           onOpenSupabaseStatus={() => setIsSupabaseModalOpen(true)}
           userRole={userRole}
-          onOpenAuthModal={() => setIsExecutiveAuthModalOpen(true)}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          onOpenUserProfile={() => setIsUserProfileModalOpen(true)}
         />
 
         {/* Supabase Status / Notice Banner */}
@@ -1385,13 +1471,33 @@ export default function App() {
 
         {/* Main View Area (Maximized screen real estate for content) */}
         <main className="flex-1 w-full px-3 sm:px-4 lg:px-5 py-3 sm:py-3.5">
-          {currentTab === 'dashboard' && (
+          {currentUser && !hasTabPermission(currentUser, currentTab) ? (
+            <div className="max-w-md mx-auto my-16 p-8 bg-white border border-slate-200 rounded-2xl shadow-sm text-center">
+              <div className="w-14 h-14 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center mx-auto mb-4 text-rose-500">
+                <ShieldAlert className="w-7 h-7" />
+              </div>
+              <h3 className="text-base font-bold text-slate-800">ไม่มีสิทธิ์เข้าถึงเมนูนี้</h3>
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                บัญชีของคุณ (<strong>{currentUser.name}</strong> - บทบาท <span className="uppercase font-semibold">{currentUser.role}</span>) ไม่ได้รับอนุญาตให้เข้าถึงหน้านี้ กรุณาติดต่อผู้ดูแลระบบ (Admin) เพื่อขอสิทธิ์การใช้งาน
+              </p>
+              <div className="mt-6 flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab(currentUser.role === 'user' ? 'disbursements' : 'dashboard')}
+                  className="px-4 py-2 bg-[#005aa9] hover:bg-[#004a8c] text-white text-xs font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
+                >
+                  กลับสู่หน้าหลักที่ได้รับสิทธิ์
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {currentTab === 'dashboard' && (
             <DashboardView
               transactions={transactions}
               disbursements={disbursements}
               todoTasks={todoTasks}
               userRole={userRole}
-              onUnlockExecutive={() => setIsExecutiveAuthModalOpen(true)}
               onNavigateTab={setCurrentTab}
               onFilterProject={(p) => setSelectedProjectFilter(p)}
               onRescheduleDisbursement={handleRescheduleDisbursement}
@@ -1551,7 +1657,6 @@ export default function App() {
             <AccountsView
               transactions={transactions}
               userRole={userRole}
-              onUnlockExecutive={() => setIsExecutiveAuthModalOpen(true)}
             />
           )}
 
@@ -1572,10 +1677,19 @@ export default function App() {
             <AIAnalysisView
               transactions={transactions}
               userRole={userRole}
-              onUnlockExecutive={() => setIsExecutiveAuthModalOpen(true)}
               onNavigateTab={setCurrentTab}
               onFilterProject={(p) => setSelectedProjectFilter(p)}
             />
+          )}
+
+          {currentTab === 'document_templates' && (
+            <DocumentTemplatesView />
+          )}
+
+          {currentTab === 'user_management' && (
+            <UserManagementView currentUser={currentUser} />
+          )}
+            </>
           )}
         </main>
       </div>
@@ -1639,14 +1753,15 @@ export default function App() {
         onApprove={handleApproveDisbursement}
       />
 
-      <RecordTransferModal
+      <RecordPaymentModal
         isOpen={isRecordTransferModalOpen}
         onClose={() => {
           setIsRecordTransferModalOpen(false);
           setTransferDisbursement(null);
         }}
         disbursement={transferDisbursement}
-        onSaveTransfer={handleSaveTransfer}
+        disbursements={disbursements}
+        onConfirmPayment={handleConfirmPayment}
         accountsList={accountsList}
       />
 
@@ -1676,12 +1791,30 @@ export default function App() {
         isLoading={isLoadingData}
       />
 
-      <ExecutiveAuthModal
-        isOpen={isExecutiveAuthModalOpen}
-        onClose={() => setIsExecutiveAuthModalOpen(false)}
-        currentRole={userRole}
-        onRoleChange={handleRoleChange}
+      <UserProfileModal
+        isOpen={isUserProfileModalOpen}
+        onClose={() => setIsUserProfileModalOpen(false)}
+        currentUser={currentUser}
+        userRole={userRole}
+        onLogout={handleLogout}
+      />
+
+      <GoogleMasterSyncModal
+        isOpen={isGoogleModalOpen}
+        onClose={() => {
+          setIsGoogleModalOpen(false);
+          // Recheck connection state
+          getAccessToken().then(token => setIsGoogleConnected(Boolean(token)));
+        }}
+        sampleVendors={Array.from(new Set(disbursements.map(d => d.payeeName).filter(Boolean)))}
+        sampleProjects={projectsList}
+        sampleExpenseTypes={Array.from(new Set(transactions.map(t => t.category).filter(Boolean)))}
+        onMasterDataLoaded={() => {
+          showToast('ซิงค์และอัปเดต Master Data จาก Google Sheets เรียบร้อยแล้ว');
+          setIsGoogleConnected(true);
+        }}
       />
     </div>
+    </DatabaseSuggestionsProvider>
   );
 }

@@ -1,16 +1,27 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { UploadCloud, Paperclip, X, FileText, Image as ImageIcon, Eye, Plus } from 'lucide-react';
+import { UploadCloud, Paperclip, X, FileText, Image as ImageIcon, Eye, Plus, HardDrive, CheckCircle2, Loader2, ExternalLink } from 'lucide-react';
 import { DisbursementAttachment } from '../types';
+import { uploadFileToDrive, deleteFileFromDrive } from '../services/googleDriveService';
+import { getAccessToken } from '../services/googleAuthService';
 
 interface FileUploadZoneProps {
   attachments: DisbursementAttachment[];
   onChange: (attachments: DisbursementAttachment[]) => void;
+  docNo?: string;
+  projectName?: string;
 }
 
-export function FileUploadZone({ attachments, onChange }: FileUploadZoneProps) {
+export function FileUploadZone({ attachments, onChange, docNo, projectName }: FileUploadZoneProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<DisbursementAttachment | null>(null);
+  const [isUploadingToDrive, setIsUploadingToDrive] = useState(false);
+  const [uploadStatusMsg, setUploadStatusMsg] = useState<string | null>(null);
+  const [hasGoogleToken, setHasGoogleToken] = useState(false);
+
+  useEffect(() => {
+    getAccessToken().then(token => setHasGoogleToken(Boolean(token)));
+  }, []);
 
   // Handle Clipboard Paste (Ctrl+V / Cmd+V)
   useEffect(() => {
@@ -23,7 +34,7 @@ export function FileUploadZone({ attachments, onChange }: FileUploadZoneProps) {
         if (item.type.indexOf('image') !== -1) {
           const file = item.getAsFile();
           if (file) {
-            processFile(file, `ภาพถ่ายหลักฐาน/สลิป_${new Date().toLocaleTimeString('th-TH').replace(/:/g, '-')}`);
+            processFile(file, `สลิป_หลักฐาน_${new Date().toLocaleTimeString('th-TH').replace(/:/g, '-')}`);
           }
         }
       }
@@ -31,25 +42,68 @@ export function FileUploadZone({ attachments, onChange }: FileUploadZoneProps) {
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [attachments]);
+  }, [attachments, hasGoogleToken, docNo, projectName]);
 
-  const processFile = (file: File, customName?: string) => {
+  const processFile = async (file: File, customName?: string) => {
     if (attachments.length >= 10) {
       alert('สามารถแนบเอกสารได้สูงสุด 10 ไฟล์');
       return;
     }
 
+    const token = await getAccessToken();
+    const isPdf = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+    const attachmentType: 'pdf' | 'image' | 'document' = isPdf ? 'pdf' : file.type.startsWith('image/') ? 'image' : 'document';
+    const originalName = customName ? `${customName}.${file.name.split('.').pop() || 'png'}` : file.name;
+
+    // If Google token is available, upload directly to Google Drive with standardized name
+    if (token) {
+      try {
+        setIsUploadingToDrive(true);
+        setUploadStatusMsg(`กำลังอัปโหลดไปยัง Google Drive: ${originalName}...`);
+        
+        const driveResult = await uploadFileToDrive(
+          file,
+          originalName,
+          docNo || 'DBM',
+          projectName ? `โครงการ_${projectName.replace(/[^a-zA-Z0-9_\u0E00-\u0E7F-]/g, '_').substring(0, 30)}` : 'เอกสารแนบทั่วไป'
+        );
+
+        const newAttachment: DisbursementAttachment = {
+          id: `att_drive_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          name: driveResult.standardName,
+          url: driveResult.webViewLink,
+          type: attachmentType,
+          size: file.size,
+          uploadedAt: new Date().toISOString(),
+          driveFileId: driveResult.fileId,
+          storageProvider: 'drive'
+        };
+
+        onChange([...attachments, newAttachment]);
+        setUploadStatusMsg(`จัดเก็บลง Google Drive เรียบร้อย: ${driveResult.standardName}`);
+        setTimeout(() => setUploadStatusMsg(null), 4000);
+        return;
+      } catch (err: any) {
+        console.warn('Google Drive direct upload failed, fallback to local memory:', err);
+        setUploadStatusMsg('อัปโหลด Drive ขัดข้อง กำลังจัดเก็บแบบออฟไลน์สำรอง...');
+      } finally {
+        setIsUploadingToDrive(false);
+      }
+    }
+
+    // Fallback or offline upload
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
-      const isPdf = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+      const cleanDoc = docNo ? `${docNo}_` : '';
       const newAttachment: DisbursementAttachment = {
         id: `att_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        name: customName || file.name,
+        name: `${cleanDoc}${originalName}`,
         url: dataUrl,
-        type: isPdf ? 'pdf' : file.type.startsWith('image/') ? 'image' : 'document',
+        type: attachmentType,
         size: file.size,
-        uploadedAt: new Date().toISOString()
+        uploadedAt: new Date().toISOString(),
+        storageProvider: 'local'
       };
       onChange([...attachments, newAttachment]);
     };
@@ -79,7 +133,15 @@ export function FileUploadZone({ attachments, onChange }: FileUploadZoneProps) {
     }
   };
 
-  const handleRemove = (id: string) => {
+  const handleRemove = async (id: string) => {
+    const target = attachments.find(a => a.id === id);
+    // Ask confirmation if deleting from Drive
+    if (target?.driveFileId) {
+      const confirmDelete = window.confirm(`ต้องการลบไฟล์ "${target.name}" ออกจาก Google Drive ด้วยหรือไม่?\n(ระบบจะกำจัดไฟล์ขยะออกจาก Drive อัตโนมัติ)`);
+      if (confirmDelete) {
+        deleteFileFromDrive(target.driveFileId).catch(console.error);
+      }
+    }
     onChange(attachments.filter(a => a.id !== id));
   };
 
@@ -98,23 +160,39 @@ export function FileUploadZone({ attachments, onChange }: FileUploadZoneProps) {
           <span className="font-bold text-slate-800 text-xs">
             แนบเอกสารหลักฐาน / ใบเสนอราคา / ใบแจ้งหนี้ ({attachments.length} ไฟล์)
           </span>
+          {hasGoogleToken ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+              <HardDrive className="w-3 h-3" /> เชื่อมต่อ Google Drive แล้ว
+            </span>
+          ) : (
+            <span className="text-[10px] text-slate-400">
+              (โหมดสำรองออฟไลน์)
+            </span>
+          )}
         </div>
-        <span className="text-[10px] text-slate-500 font-medium">
-          รองรับลากไฟล์ หรือกด <kbd className="px-1.5 py-0.5 bg-slate-200 text-slate-800 rounded font-mono font-bold">Ctrl+V</kbd> เพื่อวางรูปได้ทันที
+        <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
+          รองรับลากไฟล์ หรือกด <kbd className="px-1.5 py-0.5 bg-slate-200 text-slate-800 rounded font-mono font-bold">Ctrl+V</kbd> เพื่อวางรูป
         </span>
       </div>
+
+      {uploadStatusMsg && (
+        <div className="p-2 rounded-lg bg-blue-50 border border-blue-200 text-xs text-[#005aa9] font-medium flex items-center gap-2">
+          {isUploadingToDrive ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
+          <span>{uploadStatusMsg}</span>
+        </div>
+      )}
 
       {/* Dropzone */}
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
+        onClick={() => !isUploadingToDrive && fileInputRef.current?.click()}
         className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
           isDragging 
             ? 'border-[#005aa9] bg-blue-50/70 scale-[1.01]' 
             : 'border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50/50'
-        }`}
+        } ${isUploadingToDrive ? 'opacity-60 cursor-not-allowed' : ''}`}
       >
         <input
           ref={fileInputRef}
@@ -123,17 +201,18 @@ export function FileUploadZone({ attachments, onChange }: FileUploadZoneProps) {
           accept="image/*,application/pdf"
           onChange={handleFileSelect}
           className="hidden"
+          disabled={isUploadingToDrive}
         />
 
         <div className="flex flex-col items-center justify-center gap-1.5 py-1">
           <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#005aa9] flex items-center justify-center">
-            <UploadCloud className="w-5 h-5" />
+            {isUploadingToDrive ? <Loader2 className="w-5 h-5 animate-spin" /> : <UploadCloud className="w-5 h-5" />}
           </div>
           <div className="text-xs font-bold text-slate-700">
-            คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่
+            {isUploadingToDrive ? 'กำลังส่งไฟล์เข้า Google Drive...' : 'คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่'}
           </div>
           <div className="text-[10px] text-slate-400">
-            รองรับไฟล์ภาพ JPG, PNG, ใบเสนอราคา PDF หรือวางภาพจากคลิปบอร์ดโดยตรง
+            ระบบจะจัดเก็บไฟล์ลง Google Drive อัตโนมัติ พร้อมจัดหมวดหมู่และตั้งชื่อตามเลขที่เอกสาร {docNo || ''}
           </div>
         </div>
       </div>
@@ -160,26 +239,43 @@ export function FileUploadZone({ attachments, onChange }: FileUploadZoneProps) {
                   <div className="text-xs font-bold text-slate-800 truncate" title={att.name}>
                     {att.name}
                   </div>
-                  <div className="text-[10px] text-slate-400">
-                    {formatFileSize(att.size)}
+                  <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                    <span>{formatFileSize(att.size)}</span>
+                    {att.storageProvider === 'drive' && (
+                      <span className="inline-flex items-center gap-0.5 text-[#005aa9] font-medium">
+                        <HardDrive className="w-2.5 h-2.5" /> Drive
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setPreviewAttachment(att)}
-                  className="p-1 text-slate-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-                  title="ดูตัวอย่าง"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                </button>
+                {att.url.startsWith('http') ? (
+                  <a
+                    href={att.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-1 text-slate-400 hover:text-[#005aa9] rounded-md hover:bg-blue-50 transition-colors"
+                    title="เปิดดูใน Google Drive"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewAttachment(att)}
+                    className="p-1 text-slate-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                    title="ดูตัวอย่าง"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handleRemove(att.id)}
                   className="p-1 text-slate-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
-                  title="ลบไฟล์"
+                  title="ลบไฟล์ (ระบบจะลบออกจาก Drive ด้วย)"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -224,3 +320,4 @@ export function FileUploadZone({ attachments, onChange }: FileUploadZoneProps) {
     </div>
   );
 }
+

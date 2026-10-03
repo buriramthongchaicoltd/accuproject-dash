@@ -35,6 +35,8 @@ import {
 } from '../types';
 import { formatCurrency } from '../utils/accounting';
 import { SubcontractPrintModal } from './SubcontractPrintModal';
+import { SearchableCombobox } from './SearchableCombobox';
+import { SubcontractorContractTemplate } from './documents/SubcontractTemplates';
 
 interface SubcontractViewProps {
   subcontracts: Subcontract[];
@@ -78,6 +80,7 @@ export function SubcontractView({
   const [isNewInspectionOpen, setIsNewInspectionOpen] = useState(false);
   const [isNewClaimOpen, setIsNewClaimOpen] = useState(false);
   const [printClaim, setPrintClaim] = useState<SubcontractPaymentClaim | null>(null);
+  const [viewContractModal, setViewContractModal] = useState<Subcontract | null>(null);
   const [selectedInspectionForClaim, setSelectedInspectionForClaim] = useState<SubcontractInspection | null>(null);
   const [refundTargetRecord, setRefundTargetRecord] = useState<RetentionLedgerRecord | null>(null);
   const [refundPvInput, setRefundPvInput] = useState('');
@@ -389,13 +392,14 @@ export function SubcontractView({
                   <th className="py-3 px-4 text-right">มูลค่าสัญญา</th>
                   <th className="py-3 px-4 text-center">ประกัน (Ret.)</th>
                   <th className="py-3 px-4 text-right">ตรวจผ่านสะสม</th>
+                  <th className="py-3 px-4 text-center">สัญญา</th>
                   <th className="py-3 px-4 text-center">สถานะ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 font-sans">
                 {filteredContracts.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-400">
+                    <td colSpan={10} className="py-8 text-center text-slate-400">
                       ไม่พบข้อมูลสัญญาตามเงื่อนไขที่ค้นหา
                     </td>
                   </tr>
@@ -463,6 +467,16 @@ export function SubcontractView({
                           <span className="text-[10px] text-slate-400 block mt-0.5">
                             {progressPercent.toFixed(1)}%
                           </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            onClick={() => setViewContractModal(c)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-[#005aa9] text-[#005aa9] hover:text-white border border-blue-200 rounded text-[11px] font-bold transition-colors cursor-pointer shadow-2xs"
+                            title="ดูและพิมพ์สัญญาจ้างเหมา (ตามแบบ 3 หน้า)"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>สัญญา</span>
+                          </button>
                         </td>
                         <td className="py-3 px-4 text-center">
                           <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 rounded-full font-bold text-[10px]">
@@ -857,6 +871,7 @@ export function SubcontractView({
           onClose={() => setIsNewContractOpen(false)}
           boqItems={boqItems}
           uniqueProjects={uniqueProjects}
+          subcontracts={subcontracts}
           onSave={(contractData) => {
             onAddSubcontract(contractData);
             setIsNewContractOpen(false);
@@ -984,6 +999,75 @@ export function SubcontractView({
         </div>
       )}
 
+      {/* ================= MODAL 6: SUBCONTRACT AGREEMENT PRINT ================= */}
+      {viewContractModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto print:p-0 print:bg-white print:static print:z-auto">
+          <div className="bg-slate-100 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-300 print:border-none print:shadow-none print:max-w-none print:max-h-none print:rounded-none">
+            {/* Header toolbar */}
+            <div className="p-4 bg-white border-b border-slate-200 flex justify-between items-center print:hidden">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-50 text-blue-700 rounded-lg">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    สัญญาจ้างเหมา: {viewContractModal.contractNo}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {viewContractModal.contractorName} &bull; {viewContractModal.project}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-[#005aa9] hover:bg-blue-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>พิมพ์สัญญา (Print / PDF)</span>
+                </button>
+                <button
+                  onClick={() => setViewContractModal(null)}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Contract Content */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 print:p-0 print:overflow-visible">
+              <SubcontractorContractTemplate
+                contractNo={viewContractModal.contractNo}
+                projectName={viewContractModal.project}
+                contractDate={viewContractModal.contractDate}
+                contractLocation={viewContractModal.contractLocation}
+                contractLocationAddress={viewContractModal.contractLocationAddress}
+                employerName={viewContractModal.employerName}
+                employerRep={viewContractModal.employerRep}
+                employerPosition={viewContractModal.employerPosition}
+                employerAddress={viewContractModal.employerAddress}
+                contractorName={viewContractModal.contractorName}
+                contractorTaxId={viewContractModal.taxId}
+                contractorRep={viewContractModal.contractorRep}
+                contractorPosition={viewContractModal.contractorPosition}
+                contractorAddress={viewContractModal.contractorAddress}
+                workScope={`${viewContractModal.contractTitle} (${viewContractModal.workCategory}) ${viewContractModal.startKm ? `ช่วง กม. ${viewContractModal.startKm} ถึง ${viewContractModal.endKm}` : ''} ${viewContractModal.project}`}
+                contractAmount={viewContractModal.contractAmount}
+                retentionPercent={Math.round(viewContractModal.retentionRate * 100)}
+                retentionReturnMonths={viewContractModal.warrantyPeriodMonths || 12}
+                startDate={viewContractModal.startDate}
+                endDate={viewContractModal.endDate}
+                dailyPenalty={viewContractModal.dailyPenalty}
+                dailyPenaltyText={viewContractModal.dailyPenaltyText}
+                paymentDueDay={viewContractModal.paymentDueDay}
+                showControlBar={false}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -996,15 +1080,19 @@ interface NewContractModalProps {
   onClose: () => void;
   boqItems: ProjectBOQItem[];
   uniqueProjects: string[];
+  subcontracts?: Subcontract[];
   onSave: (contract: Omit<Subcontract, 'id' | 'totalInspectedQty' | 'totalApprovedAmount' | 'totalPaidAmount' | 'totalRetentionHeld' | 'totalRetentionRefunded'>) => void;
 }
 
-function NewContractModal({ isOpen, onClose, boqItems, uniqueProjects, onSave }: NewContractModalProps) {
+function NewContractModal({ isOpen, onClose, boqItems, uniqueProjects, subcontracts = [], onSave }: NewContractModalProps) {
   const [contractNo, setContractNo] = useState(`SUB-67-${String(Math.floor(Math.random() * 900) + 100)}`);
   const [contractTitle, setContractTitle] = useState('');
   const [project, setProject] = useState(uniqueProjects[0] || '(38)ทล.24 อ.ปราสาท-อ.สังขะ ตอน2 จ.สุรินทร์ (ปี2568)');
   const [boqItemId, setBoqItemId] = useState('');
   const [contractorName, setContractorName] = useState('');
+  const [contractorRep, setContractorRep] = useState('');
+  const [contractorPosition, setContractorPosition] = useState('ผู้มีอำนาจลงนาม');
+  const [contractorAddress, setContractorAddress] = useState('');
   const [entityType, setEntityType] = useState<'individual' | 'corporate_vat' | 'corporate_novat'>('corporate_vat');
   const [taxId, setTaxId] = useState('');
   const [phone, setPhone] = useState('');
@@ -1018,8 +1106,50 @@ function NewContractModal({ isOpen, onClose, boqItems, uniqueProjects, onSave }:
   const [unitRate, setUnitRate] = useState<number>(1450);
   const [retentionRate, setRetentionRate] = useState<number>(0.05);
   const [warrantyPeriodMonths, setWarrantyPeriodMonths] = useState<number>(24);
+  const [contractDate, setContractDate] = useState(() => new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }));
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(() => new Date(Date.now() + 180 * 86400000).toISOString().split('T')[0]);
+  const [dailyPenalty, setDailyPenalty] = useState<number>(3000);
+  const [paymentDueDay, setPaymentDueDay] = useState<number>(5);
+  const [employerRep, setEmployerRep] = useState('นายวิชัย นพสุวรรณวงศ์');
+  const [employerPosition, setEmployerPosition] = useState('กรรมการผู้จัดการ');
 
   const contractAmount = quantity * unitRate;
+
+  // Master lists for combobox
+  const allContractors = useMemo(() => {
+    const list = new Set<string>();
+    subcontracts.forEach(s => { if (s.contractorName) list.add(s.contractorName); });
+    [
+      'หจก. ปิยะวิลล์คอนสตรัคชั่น',
+      'นายสมศักดิ์ ช่างเหล็ก',
+      'หจก. บุรีรัมย์ศิลาชัย',
+      'นายวิชัย การช่าง',
+      'หจก. ชัยมงคลงานดิน',
+      'ช่างสมานงานผิวทาง'
+    ].forEach(c => list.add(c));
+    return Array.from(list);
+  }, [subcontracts]);
+
+  const allWorkCategories = [
+    'งานระบายน้ำและท่อเหลี่ยม',
+    'งานผิวทางแอสฟัลต์คอนกรีต',
+    'งานโครงสร้างทางและงานดิน',
+    'งานสะพานและสะพานลอย',
+    'งานทางเท้าและคันหิน',
+    'งานป้ายจราจรและตีเส้น',
+    'งานไฟฟ้าส่องสว่าง'
+  ];
+
+  const allBanks = [
+    'ธนาคารกรุงเทพ (BBL)',
+    'ธนาคารกสิกรไทย (KBANK)',
+    'ธนาคารไทยพาณิชย์ (SCB)',
+    'ธนาคารกรุงไทย (KTB)',
+    'ธนาคารทหารไทยธนชาต (TTB)',
+    'ธนาคารกรุงศรีอยุธยา (BAY)',
+    'ธนาคารออมสิน (GSB)'
+  ];
 
   // Filtered BOQ items matching project
   const matchingBoqItems = useMemo(() => {
@@ -1054,9 +1184,17 @@ function NewContractModal({ isOpen, onClose, boqItems, uniqueProjects, onSave }:
       contractAmount,
       retentionRate,
       warrantyPeriodMonths,
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: new Date(Date.now() + 180 * 86400000).toISOString().split('T')[0],
-      status: 'active'
+      startDate,
+      endDate,
+      status: 'active',
+      contractDate,
+      contractorRep,
+      contractorPosition,
+      contractorAddress,
+      dailyPenalty,
+      paymentDueDay,
+      employerRep,
+      employerPosition
     });
   };
 
@@ -1089,16 +1227,16 @@ function NewContractModal({ isOpen, onClose, boqItems, uniqueProjects, onSave }:
               />
             </div>
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">โครงการ / สายทาง *</label>
-              <select
+              <SearchableCombobox
+                label="โครงการ / สายทาง"
+                required
                 value={project}
-                onChange={e => setProject(e.target.value)}
-                className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500"
-              >
-                {uniqueProjects.map(p => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
+                onChange={(val) => setProject(val)}
+                options={uniqueProjects}
+                placeholder="เลือกหรือพิมพ์โครงการ"
+                allowCustom={true}
+                accentColor="blue"
+              />
             </div>
           </div>
 
@@ -1122,14 +1260,16 @@ function NewContractModal({ isOpen, onClose, boqItems, uniqueProjects, onSave }:
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">ชื่อผู้รับเหมาช่วง / คู่สัญญา *</label>
-              <input
-                type="text"
+              <SearchableCombobox
+                label="ชื่อผู้รับเหมาช่วง / คู่สัญญา"
                 required
-                placeholder="เช่น หจก. ปิยะวิลล์คอนสตรัคชั่น หรือ นายสมศักดิ์"
                 value={contractorName}
-                onChange={e => setContractorName(e.target.value)}
-                className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500"
+                onChange={(val) => setContractorName(val)}
+                options={allContractors}
+                datalistId="dl-payees"
+                placeholder="เลือกหรือพิมพ์ค้นหาผู้รับเหมา"
+                allowCustom={true}
+                accentColor="blue"
               />
             </div>
             <div>
@@ -1146,11 +1286,52 @@ function NewContractModal({ isOpen, onClose, boqItems, uniqueProjects, onSave }:
             </div>
           </div>
 
+          {/* ข้อมูลนิติบุคคลและผู้มีอำนาจลงนาม */}
+          <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200 space-y-3">
+            <span className="font-bold text-slate-800 block text-xs">ข้อมูลผู้รับจ้าง & ผู้มีอำนาจลงนามสัญญา</span>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-slate-600 block mb-1">ชื่อผู้แทน / ผู้มีอำนาจลงนาม (ผู้รับจ้าง) *</label>
+                <input
+                  type="text"
+                  list="dl-requesters"
+                  placeholder="เช่น นายปิยะพงษ์ สิทธิชัย"
+                  value={contractorRep}
+                  onChange={e => setContractorRep(e.target.value)}
+                  className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-slate-600 block mb-1">ตำแหน่งของผู้ลงนาม *</label>
+                <input
+                  type="text"
+                  list="dl-positions"
+                  placeholder="เช่น หุ้นส่วนผู้จัดการ / กรรมการผู้จัดการ"
+                  value={contractorPosition}
+                  onChange={e => setContractorPosition(e.target.value)}
+                  className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-slate-600 block mb-1">ที่อยู่ตามทะเบียน / ภ.พ.20 ของผู้รับจ้าง</label>
+              <input
+                type="text"
+                list="dl-addresses"
+                placeholder="เช่น เลขที่ 88/12 หมู่ที่ 5 ต.นอกเมือง อ.เมือง จ.สุรินทร์ 32000"
+                value={contractorAddress}
+                onChange={e => setContractorAddress(e.target.value)}
+                className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="font-semibold text-slate-700 block mb-1">เลขประจำตัวผู้เสียภาษี / บัตร ปชช.</label>
               <input
                 type="text"
+                list="dl-tax-ids"
                 placeholder="13 หลัก"
                 value={taxId}
                 onChange={e => setTaxId(e.target.value)}
@@ -1158,18 +1339,22 @@ function NewContractModal({ isOpen, onClose, boqItems, uniqueProjects, onSave }:
               />
             </div>
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">ธนาคารเริ่มต้น</label>
-              <input
-                type="text"
+              <SearchableCombobox
+                label="ธนาคารเริ่มต้น"
                 value={defaultBankName}
-                onChange={e => setDefaultBankName(e.target.value)}
-                className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500"
+                onChange={(val) => setDefaultBankName(val)}
+                options={allBanks}
+                datalistId="dl-bank-names"
+                placeholder="เลือกธนาคาร"
+                allowCustom={true}
+                accentColor="blue"
               />
             </div>
             <div>
               <label className="font-semibold text-slate-700 block mb-1">เลขที่บัญชีธนาคาร</label>
               <input
                 type="text"
+                list="dl-bank-accounts"
                 value={defaultBankAccount}
                 onChange={e => setDefaultBankAccount(e.target.value)}
                 className="w-full border border-slate-300 rounded px-2.5 py-1.5 font-mono text-xs focus:ring-2 focus:ring-blue-500"
@@ -1185,6 +1370,7 @@ function NewContractModal({ isOpen, onClose, boqItems, uniqueProjects, onSave }:
                 <label className="text-slate-600 block mb-1">ช่วง กม. เริ่มต้น</label>
                 <input
                   type="text"
+                  list="dl-locations"
                   placeholder="เช่น กม. 10+000"
                   value={startKm}
                   onChange={e => setStartKm(e.target.value)}
@@ -1195,6 +1381,7 @@ function NewContractModal({ isOpen, onClose, boqItems, uniqueProjects, onSave }:
                 <label className="text-slate-600 block mb-1">ช่วง กม. สิ้นสุด</label>
                 <input
                   type="text"
+                  list="dl-locations"
                   placeholder="เช่น กม. 15+000"
                   value={endKm}
                   onChange={e => setEndKm(e.target.value)}
@@ -1202,12 +1389,15 @@ function NewContractModal({ isOpen, onClose, boqItems, uniqueProjects, onSave }:
                 />
               </div>
               <div>
-                <label className="text-slate-600 block mb-1">หมวดงาน</label>
-                <input
-                  type="text"
+                <SearchableCombobox
+                  label="หมวดงาน"
                   value={workCategory}
-                  onChange={e => setWorkCategory(e.target.value)}
-                  className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500"
+                  onChange={(val) => setWorkCategory(val)}
+                  options={allWorkCategories}
+                  datalistId="dl-boq-types"
+                  placeholder="เลือกหรือระบุหมวดงาน"
+                  allowCustom={true}
+                  accentColor="blue"
                 />
               </div>
             </div>
@@ -1228,6 +1418,7 @@ function NewContractModal({ isOpen, onClose, boqItems, uniqueProjects, onSave }:
                 <label className="text-slate-600 block mb-1">หน่วยนับ</label>
                 <input
                   type="text"
+                  list="dl-units"
                   value={unit}
                   onChange={e => setUnit(e.target.value)}
                   className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500"
@@ -1276,6 +1467,65 @@ function NewContractModal({ isOpen, onClose, boqItems, uniqueProjects, onSave }:
                 onChange={e => setWarrantyPeriodMonths(Number(e.target.value))}
                 className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+          </div>
+
+          {/* ระยะเวลาและเบี้ยปรับ */}
+          <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200 space-y-3">
+            <span className="font-bold text-slate-800 block text-xs">กำหนดการสัญญา & เบี้ยปรับ</span>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-slate-600 block mb-1">วันที่ทำสัญญา</label>
+                <input
+                  type="text"
+                  placeholder="เช่น 15 ธันวาคม 2568"
+                  value={contractDate}
+                  onChange={e => setContractDate(e.target.value)}
+                  className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-slate-600 block mb-1">วันเริ่มต้นสัญญา *</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-slate-600 block mb-1">วันสิ้นสุดสัญญา *</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-slate-600 block mb-1">เบี้ยปรับล่าช้าต่อวัน (บาท/วัน)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={dailyPenalty}
+                  onChange={e => setDailyPenalty(Number(e.target.value))}
+                  className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs bg-white font-mono focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-slate-600 block mb-1">กำหนดจ่ายเงินค่างวดทุกวันที่...ของเดือน</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={paymentDueDay}
+                  onChange={e => setPaymentDueDay(Number(e.target.value))}
+                  className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs bg-white font-mono focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
           </div>
 
@@ -1427,6 +1677,7 @@ function NewInspectionModal({ isOpen, onClose, subcontracts, inspections, onSave
               <input
                 type="text"
                 required
+                list="dl-inspectors"
                 value={inspectorName}
                 onChange={e => setInspectorName(e.target.value)}
                 className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500"
@@ -1440,6 +1691,7 @@ function NewInspectionModal({ isOpen, onClose, subcontracts, inspections, onSave
               <input
                 type="text"
                 required
+                list="dl-locations"
                 value={startKm}
                 onChange={e => setStartKm(e.target.value)}
                 className="w-full border border-slate-300 rounded px-2.5 py-1.5 font-mono text-xs focus:ring-2 focus:ring-blue-500"
@@ -1450,6 +1702,7 @@ function NewInspectionModal({ isOpen, onClose, subcontracts, inspections, onSave
               <input
                 type="text"
                 required
+                list="dl-locations"
                 value={endKm}
                 onChange={e => setEndKm(e.target.value)}
                 className="w-full border border-slate-300 rounded px-2.5 py-1.5 font-mono text-xs focus:ring-2 focus:ring-blue-500"

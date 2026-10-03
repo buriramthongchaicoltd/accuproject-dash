@@ -22,14 +22,13 @@ import {
 interface AccountsViewProps {
   transactions: Transaction[];
   userRole?: UserRole;
-  onUnlockExecutive?: () => void;
 }
 
 export function AccountsView({ 
   transactions, 
-  userRole = 'executive', 
-  onUnlockExecutive 
+  userRole = 'executive'
 }: AccountsViewProps) {
+  const isExecutive = userRole === 'admin' || userRole === 'manager' || userRole === 'executive';
   const accountBalances = useMemo(() => computeAccountBalances(transactions), [transactions]);
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'loans' | 'transfers' | 'account_tx'>('loans');
@@ -234,7 +233,7 @@ export function AccountsView({
       </div>
 
       {/* 2 & 2.5 Liquidity & Bank Account Balances (เฉพาะผู้บริหาร) */}
-      {userRole === 'executive' ? (
+      {isExecutive ? (
         <>
           {/* 2. Liquidity & Financial Health KPI Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
@@ -432,19 +431,10 @@ export function AccountsView({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                ระบบจำกัดการเข้าถึงยอดเงินในบัญชีธนาคาร KTB, BBL และยอดสภาพคล่องสำหรับสิทธิ์เจ้าหน้าที่ทั่วไป
+                ระบบจำกัดการเข้าถึงยอดเงินในบัญชีธนาคาร KTB, BBL และยอดสภาพคล่องสำหรับสิทธิ์ผู้บริหาร (Admin / Manager)
               </p>
             </div>
           </div>
-          {onUnlockExecutive && (
-            <button
-              onClick={onUnlockExecutive}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-xs transition-all cursor-pointer self-start sm:self-auto shrink-0"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>ปลดล็อกสิทธิ์ผู้บริหารเพื่อดูยอดเงิน</span>
-            </button>
-          )}
         </div>
       )}
 

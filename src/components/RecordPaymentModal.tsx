@@ -4,17 +4,21 @@ import {
   X, CheckCircle2, ArrowRight, Link, Building2, 
   CreditCard, Banknote, FileCheck, Upload, Image,
   Eye, Trash2, Clipboard, QrCode, AlertCircle, ShieldCheck,
-  UserCheck, PenTool, Check, Sparkles
+  UserCheck, PenTool, Check
 } from 'lucide-react';
 import QRCode from 'qrcode';
-import { SignaturePad } from './SignaturePad';
+import { SignatureActionModal } from './SignatureActionModal';
+import { FileUploadZone } from './FileUploadZone';
+import { BTCLogo } from './BTCLogo';
+import { numberToThaiBaht } from '../utils/thaiBahtText';
 import { generatePVNumber, generateAuditCertificateId } from '../utils/paymentUtils';
+import { getActiveUserName } from '../services/userService';
 
 interface RecordPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   disbursement: Disbursement | null;
-  disbursements: Disbursement[];
+  disbursements?: Disbursement[];
   onConfirmPayment: (
     id: string,
     paymentData: {
@@ -42,7 +46,7 @@ export function RecordPaymentModal({
   isOpen,
   onClose,
   disbursement,
-  disbursements,
+  disbursements = [],
   onConfirmPayment,
   accountsList
 }: RecordPaymentModalProps) {
@@ -56,8 +60,9 @@ export function RecordPaymentModal({
   const [documentLink, setDocumentLink] = useState('');
   const [paymentSlipUrl, setPaymentSlipUrl] = useState<string>('');
   const [paymentSlipName, setPaymentSlipName] = useState<string>('');
-  const [financeRecordedBy, setFinanceRecordedBy] = useState('น.ส.กมลทิพย์ กรมทอง (ฝ่ายการเงิน)');
+  const [financeRecordedBy, setFinanceRecordedBy] = useState(() => getActiveUserName());
   const [payerSignature, setPayerSignature] = useState<string>('');
+  const [showSignModal, setShowSignModal] = useState<boolean>(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [previewSlip, setPreviewSlip] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -94,7 +99,7 @@ export function RecordPaymentModal({
       setDocumentLink(disbursement.documentLink || '');
       setPaymentSlipUrl(disbursement.paymentSlipUrl || '');
       setPaymentSlipName(disbursement.paymentSlipName || '');
-      setFinanceRecordedBy(disbursement.financeRecordedBy || 'น.ส.กมลทิพย์ กรมทอง (ฝ่ายการเงิน)');
+      setFinanceRecordedBy(disbursement.financeRecordedBy || getActiveUserName());
       setPayerSignature(disbursement.financeSignature || '');
     }
   }, [disbursement, isOpen, accountsList]);
@@ -140,6 +145,9 @@ export function RecordPaymentModal({
 
   if (!isOpen || !disbursement) return null;
 
+  const pvNumber = disbursement.pvNo || generatePVNumber(disbursements, paymentDate);
+  const certId = disbursement.auditCertificateId || generateAuditCertificateId(disbursement.dbmNo);
+
   const handleFileUpload = (file: File) => {
     if (!file) return;
     const reader = new FileReader();
@@ -164,15 +172,12 @@ export function RecordPaymentModal({
     return amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-
+  const executePayment = (signatureToUse?: string) => {
     const finalAmount = parseFloat(transferAmount) || disbursement.totalAmount;
     const finalFee = parseFloat(fee) || 0;
+    const finalSig = signatureToUse !== undefined ? signatureToUse : payerSignature;
 
     // Generate or retain PV No
-    const pvNumber = disbursement.pvNo || generatePVNumber(disbursements, paymentDate);
-    const certId = disbursement.auditCertificateId || generateAuditCertificateId(disbursement.dbmNo);
     const nowIso = new Date().toISOString();
 
     onConfirmPayment(disbursement.id, {
@@ -186,7 +191,7 @@ export function RecordPaymentModal({
       paymentSlipUrl,
       paymentSlipName,
       financeRecordedBy: financeRecordedBy.trim(),
-      financeSignature: payerSignature,
+      financeSignature: finalSig,
       pvNo: pvNumber,
       paidAt: nowIso,
       auditCertificateId: certId,
@@ -196,415 +201,478 @@ export function RecordPaymentModal({
     onClose();
   };
 
-  // Preset fast signature for Kamonthip
-  const applyPresetSignature = () => {
-    // Generate a clean stylized canvas signature
-    const canvas = document.createElement('canvas');
-    canvas.width = 300;
-    canvas.height = 120;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      // Draw signature curve
-      ctx.moveTo(30, 80);
-      ctx.bezierCurveTo(60, 20, 90, 110, 140, 50);
-      ctx.bezierCurveTo(170, 20, 200, 90, 260, 40);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(70, 70);
-      ctx.lineTo(250, 70);
-      ctx.stroke();
-      const url = canvas.toDataURL('image/png');
-      setPayerSignature(url);
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+
+    // If signature not provided yet, open signature modal for user to sign on confirmation!
+    if (!payerSignature) {
+      setShowSignModal(true);
+      return;
     }
+
+    executePayment();
+  };
+
+  const handleConfirmSignatureAndPay = (signedUrl: string) => {
+    setPayerSignature(signedUrl);
+    setShowSignModal(false);
+    executePayment(signedUrl);
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden">
-      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-3xl w-full max-h-[92vh] flex flex-col border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[95vh] flex flex-col border border-slate-300 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
-        {/* Modal Header */}
-        <div className="bg-linear-to-r from-emerald-600 via-[#005aa9] to-blue-800 text-white px-6 py-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-white shadow-inner shrink-0">
-              <Banknote className="w-5 h-5" />
+        {/* Modal Header Bar */}
+        <div className="bg-slate-800 text-white px-5 py-3 flex items-center justify-between shrink-0 border-b border-slate-700">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0 shadow">
+              <Banknote className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 bg-emerald-400 text-emerald-950 font-black text-[10px] rounded-full uppercase tracking-wider">
-                  STEP 2 & 3: PAYMENT WORKFLOW
+                <h3 className="text-sm font-bold text-white tracking-wide">
+                  แบบฟอร์มเอกสารใบสำคัญจ่าย (Payment Voucher Form - PV)
+                </h3>
+                <span className="px-2 py-0.5 bg-emerald-400 text-emerald-950 text-[10px] font-bold rounded flex items-center gap-1">
+                  <FileCheck className="w-3 h-3 text-emerald-950" />
+                  แบบฟอร์มเอกสารจริง (Official Document)
                 </span>
-                <h2 className="text-base font-black tracking-tight">บันทึกการจ่ายเงิน & ออกใบสำคัญจ่าย (PV)</h2>
               </div>
-              <p className="text-xs text-blue-100 mt-0.5">
-                เอกสาร DBM: <span className="font-mono font-bold text-white">{disbursement.dbmNo}</span> • โครงการ: {disbursement.project}
+              <p className="text-[11px] text-slate-300 font-normal">
+                บันทึกการชำระเงินจริง • ออกเลขที่ใบสำคัญจ่าย PV • ลงลายมือชื่อสดสั่งจ่าย
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-white/70 hover:text-white rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {/* Modal Form - Full Document Canvas */}
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white">
           
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs">
-            {/* STEP 2: VERIFICATION CARD (ตรวจสอบยอดสุทธิและบัญชีผู้รับ) */}
-          <div className="bg-linear-to-br from-slate-50 to-blue-50/40 p-4 rounded-2xl border border-blue-200/80 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-blue-100">
-              <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-[11px] flex items-center justify-center">
-                  2
-                </span>
-                <h3 className="font-extrabold text-slate-900 text-sm">
-                  ตรวจสอบยอดสุทธิ & ข้อมูลบัญชีผู้รับเงิน (Verification)
-                </h3>
-              </div>
-              <span className="px-2.5 py-0.5 bg-purple-100 text-purple-900 font-bold text-[11px] rounded-md flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
-                ผ่านการอนุมัติแล้ว
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Payee Info */}
-              <div className="space-y-1.5 bg-white p-3 rounded-xl border border-slate-200">
-                <div className="text-[11px] text-slate-500 font-bold">ชื่อผู้รับเงิน (Payee)</div>
-                <div className="text-sm font-black text-slate-900">{disbursement.payeeName}</div>
-                <div className="text-[11px] text-slate-600 flex items-center gap-1 font-mono">
-                  <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-                  <span>เลขบัญชี: {disbursement.payeeBankAccount || 'ไม่มีระบุ'}</span>
+          <div className="flex-1 overflow-y-auto p-5 sm:p-8 bg-white text-xs space-y-4 text-slate-900">
+            
+            {/* 1. DOCUMENT LETTERHEAD & PV HEADER */}
+            <div className="border-b-2 border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                
+                {/* Left: Company Details */}
+                <div className="flex items-start gap-3">
+                  <BTCLogo size="md" />
+                  <div className="space-y-0.5">
+                    <h2 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
+                      บริษัท บุรีรัมย์ธงชัยก่อสร้าง จำกัด
+                    </h2>
+                    <p className="text-[11px] font-semibold text-slate-600">
+                      BURIRAM THONGCHAI CONSTRUCTION CO., LTD.
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      เลขประจำตัวผู้เสียภาษี 0315559001144 • สำนักงานใหญ่
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      31/2 ถนนอินจันทร์ณรงค์ ต.ในเมือง อ.เมือง จ.บุรีรัมย์ 31000 • โทร. 044-611134 • E-Mail: brtc2024@gmail.com
+                    </p>
+                  </div>
                 </div>
-                <div className="text-[10px] text-slate-500">
-                  ประเภทงาน: <strong className="text-slate-800">{disbursement.expenseType}</strong> ({disbursement.company})
-                </div>
-              </div>
 
-              {/* Net Total Breakdown */}
-              <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-slate-600">
-                  <span className="font-bold text-emerald-950">ยอดสุทธิที่ต้องชำระ (Net Total):</span>
-                  <span className="text-[10px] text-emerald-700 font-medium">คำนวณหักภาษีครบถ้วน</span>
-                </div>
-                <div className="text-2xl font-black font-mono text-emerald-900 my-1">
-                  {formatMoney(disbursement.totalAmount)}
-                </div>
-                <div className="text-[10px] text-emerald-800 flex items-center justify-between">
-                  <span>ผู้ขอเบิก: {disbursement.recordedBy || '-'}</span>
-                  <span>ผู้อนุมัติ: {disbursement.approverName || 'ฝ่ายบริหาร'}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* STEP 3: PAYMENT DETAILS & LIVE SIGNATURE */}
-          <div className="space-y-4 pt-1">
-            <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
-              <span className="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold text-[11px] flex items-center justify-center">
-                3
-              </span>
-              <h3 className="font-extrabold text-slate-900 text-sm">
-                กรอกรายละเอียดการชำระเงินจริง & ลงนามสด
-              </h3>
-            </div>
-
-            {/* Payment Method Selector (โอนเงิน / เช็ค / เงินสด) */}
-            <div>
-              <label className="font-bold text-slate-800 block mb-1.5">
-                รูปแบบการชำระเงิน (Payment Method) *
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: 'โอนเงินผ่านธนาคาร', label: 'โอนเงิน (Bank Transfer)', icon: CreditCard },
-                  { id: 'เช็คสั่งจ่าย', label: 'เช็ค (Cheque)', icon: Building2 },
-                  { id: 'เงินสด/เงินสดย่อย', label: 'เงินสด (Cash / Petty Cash)', icon: Banknote }
-                ].map((item) => {
-                  const Icon = item.icon;
-                  const isSelected = paymentMethod === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setPaymentMethod(item.id as any)}
-                      className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 font-bold transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20'
-                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span className="text-[11px]">{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Account & Cheque/Ref No. */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  บัญชีธนาคารผู้สั่งจ่าย (Source Account) *
-                </label>
-                <select
-                  value={payerAccount}
-                  onChange={(e) => setPayerAccount(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 font-mono text-xs font-bold text-slate-800"
-                >
-                  {accountsList.map((acc, i) => (
-                    <option key={i} value={acc}>{acc}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  {paymentMethod === 'เช็คสั่งจ่าย' ? 'เลขที่เช็คสั่งจ่าย *' : 'เลขที่ทำรายการ / เลขอ้างอิงสลิป / Ref'}
-                </label>
-                <input
-                  type="text"
-                  value={chequeNo}
-                  onChange={(e) => setChequeNo(e.target.value)}
-                  placeholder={paymentMethod === 'เช็คสั่งจ่าย' ? 'เช่น 01620875-1' : 'เช่น TXN202501158941'}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Date, Paid Amount & Fee */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  วันที่จ่ายเงินจริง * (วว/ดด/ปปปป)
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  placeholder="เช่น 15/01/2568"
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  ยอดเงินจ่ายจริง (บาท) *
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  required
-                  value={transferAmount}
-                  onChange={(e) => setTransferAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full px-3 py-2 bg-emerald-50 border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-600 font-mono font-black text-right text-emerald-950 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  ค่าธรรมเนียมธนาคาร (บาท)
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={fee}
-                  onChange={(e) => setFee(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 font-mono text-right"
-                />
-              </div>
-            </div>
-
-            {/* SLIP ATTACHMENT SECTION (รองรับ Drag & Drop, Ctrl+V, และ Drive Link) */}
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="font-bold text-slate-800 flex items-center gap-1.5">
-                  <Image className="w-4 h-4 text-emerald-600" />
-                  <span>แนบสลิปหลักฐานการโอนเงิน (Slip Attachment)</span>
-                </label>
-                <span className="text-[10px] text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
-                  รองรับลากวาง หรือกด <kbd className="font-mono font-bold text-blue-700">Ctrl+V</kbd> เพื่อวางภาพสลิปทันที
-                </span>
-              </div>
-
-              {/* Upload Dropzone */}
-              <div
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
-                  isDragging 
-                    ? 'border-emerald-500 bg-emerald-50' 
-                    : paymentSlipUrl 
-                    ? 'border-emerald-300 bg-emerald-50/40' 
-                    : 'border-slate-300 hover:border-slate-400 bg-white'
-                }`}
-              >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/*,application/pdf"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      handleFileUpload(e.target.files[0]);
-                    }
-                  }}
-                />
-
-                {paymentSlipUrl ? (
-                  <div className="flex items-center justify-between gap-3" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-2.5">
-                      <img 
-                        src={paymentSlipUrl} 
-                        alt="Payment Slip" 
-                        className="w-12 h-12 object-cover rounded-lg border border-emerald-300" 
-                      />
-                      <div className="text-left">
-                        <div className="font-bold text-emerald-950 truncate max-w-xs">{paymentSlipName || 'สลิปการโอนเงิน'}</div>
-                        <div className="text-[10px] text-emerald-700">แนบหลักฐานสลิปเรียบร้อยแล้ว</div>
+                {/* Right: Official Document Metadata Box */}
+                <div className="sm:w-72 bg-emerald-50/50 border-2 border-slate-700 rounded-lg p-2.5 shadow-xs space-y-1.5 shrink-0">
+                  <div className="text-center font-bold text-slate-900 border-b border-slate-300 pb-1 text-xs">
+                    ใบสำคัญจ่าย (PAYMENT VOUCHER)
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                    <div>
+                      <span className="text-slate-500 block text-[10px] font-medium">เลขที่ใบสำคัญ (PV No.)</span>
+                      <div className="px-1.5 py-0.5 bg-white border border-slate-300 rounded font-mono font-black text-emerald-800 text-xs truncate">
+                        {pvNumber}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewSlip(true)}
-                        className="px-2.5 py-1 bg-white hover:bg-slate-100 text-blue-700 border border-slate-200 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
-                      >
-                        <Eye className="w-3 h-3" />
-                        ดูรูปสลิป
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPaymentSlipUrl('');
-                          setPaymentSlipName('');
-                        }}
-                        className="p-1 text-slate-400 hover:text-red-600 rounded-lg cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <div>
+                      <span className="text-slate-500 block text-[10px] font-medium">อ้างอิงใบขอเบิก (DBM)</span>
+                      <div className="px-1.5 py-0.5 bg-white border border-slate-300 rounded font-mono font-bold text-slate-800 text-xs truncate">
+                        {disbursement.dbmNo}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[10px] font-medium">วันที่สั่งจ่ายจริง *</span>
+                      <input
+                        type="text"
+                        required
+                        value={paymentDate}
+                        onChange={(e) => setPaymentDate(e.target.value)}
+                        placeholder="15/01/2568"
+                        className="w-full px-1.5 py-0.5 bg-white border border-slate-300 rounded text-slate-800 text-xs font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[10px] font-medium">รหัสกำกับสิทธิ์</span>
+                      <div className="px-1.5 py-0.5 bg-white border border-slate-300 rounded font-mono text-slate-600 text-[9px] truncate" title={certId}>
+                        {certId.slice(0, 10)}...
+                      </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-1">
-                    <Upload className="w-6 h-6 text-slate-400 mx-auto" />
-                    <div className="text-xs font-bold text-slate-700">
-                      คลิกเพื่อเลือกไฟล์ หรือลากสลิปมาวางที่นี่
-                    </div>
-                    <div className="text-[10px] text-slate-400">
-                      รองรับไฟล์ภาพ JPG, PNG, PDF หรือคัดลอกรูปแล้วกด Ctrl+V
-                    </div>
-                  </div>
-                )}
+                </div>
+
               </div>
 
-              {/* Optional Drive URL for QR Code */}
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-bold text-slate-700 flex items-center gap-1">
-                    <Link className="w-3 h-3 text-[#005aa9]" />
-                    <span>หรือแนบลิงก์ Google Drive สลิป (สร้าง QR Code บนเอกสาร PV อัตโนมัติ):</span>
+              {/* 2. VERIFIED PAYEE & DISBURSEMENT INFORMATION */}
+              <div className="border border-slate-300 rounded-lg overflow-hidden bg-white">
+                <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 font-bold text-slate-800 text-xs flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>ข้อมูลรายการที่ผ่านการอนุมัติแล้ว (Approved Disbursement Details)</span>
+                  </span>
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 font-bold text-[10px] rounded">
+                    อนุมัติโดย: {disbursement.approverName || 'ฝ่ายบริหาร'}
                   </span>
                 </div>
-                <input
-                  type="url"
-                  value={documentLink}
-                  onChange={(e) => setDocumentLink(e.target.value)}
-                  placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
-                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-mono"
-                />
-              </div>
-            </div>
 
-            {/* PAYER LIVE SIGNATURE PAD (ผู้จ่ายเงินลงนามสด) */}
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3 shadow-xs">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
-                    <PenTool className="w-4 h-4 text-[#005aa9]" />
-                    <span>ผู้จ่ายเงินลงนามสด (Payer Live Signature) *</span>
-                  </label>
-                  <p className="text-[10px] text-slate-500">
-                    ลงนามรับรองการจ่ายเงินจริง ลายเซ็นนี้จะประทับบนใบสำคัญจ่าย (PV) และใบรับรองดิจิทัล
-                  </p>
-                </div>
+                <div className="p-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <span className="text-[10px] text-slate-500 block font-medium">สั่งจ่ายให้แก่ (Payee)</span>
+                    <div className="text-sm font-black text-slate-900">{disbursement.payeeName}</div>
+                    <div className="text-[11px] text-slate-600 flex items-center gap-1 font-mono mt-0.5">
+                      <CreditCard className="w-3 h-3 text-slate-400" />
+                      <span>เลขบัญชีปลายทาง: {disbursement.payeeBankAccount || 'ไม่มีระบุ'}</span>
+                    </div>
+                  </div>
 
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={applyPresetSignature}
-                    className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-[#005aa9] border border-blue-200 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    ใช้ลายเซ็นด่วน (การเงิน)
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                <div className="sm:col-span-5 space-y-2">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-600 block mb-1">
-                      ชื่อผู้บันทึกจ่ายเงิน (Payer Name) *
+                    <span className="text-[10px] text-slate-500 block font-medium">โครงการก่อสร้าง (Project)</span>
+                    <div className="text-xs font-bold text-slate-800 truncate" title={disbursement.project}>
+                      {disbursement.project}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      หมวดรายจ่าย: <strong className="text-slate-700">{disbursement.expenseType}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. ACTUAL PAYMENT PARTICULARS */}
+              <div className="border border-slate-300 rounded-lg overflow-hidden bg-white">
+                <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 font-bold text-slate-800 text-xs flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>ข้อมูลการสั่งจ่ายเงินจริง (Payment Particulars)</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-normal">
+                    กรอกข้อมูลการชำระเงินจริงให้ตรงตามหลักฐานสลิป
+                  </span>
+                </div>
+
+                <div className="p-3 space-y-3">
+                  {/* Payment Method Selector */}
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">
+                      รูปแบบการชำระเงิน (Payment Method) *
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'โอนเงินผ่านธนาคาร', label: 'โอนเงินผ่านธนาคาร (Transfer)', icon: CreditCard },
+                        { id: 'เช็คสั่งจ่าย', label: 'เช็คสั่งจ่าย (Cheque)', icon: Building2 },
+                        { id: 'เงินสด/เงินสดย่อย', label: 'เงินสด/สดย่อย (Cash)', icon: Banknote }
+                      ].map((item) => {
+                        const Icon = item.icon;
+                        const isSelected = paymentMethod === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setPaymentMethod(item.id as any)}
+                            className={`p-2 rounded-lg border flex items-center justify-center gap-1.5 font-bold transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-300'
+                            }`}
+                          >
+                            <Icon className="w-3.5 h-3.5" />
+                            <span className="text-xs">{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Accounts & Cheque/Ref */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1 text-[11px]">
+                        จ่ายจากบัญชีธนาคารบริษัท (Source Account) *
+                      </label>
+                      <select
+                        value={payerAccount}
+                        onChange={(e) => setPayerAccount(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-emerald-600 font-mono text-xs font-bold text-slate-800"
+                      >
+                        {accountsList.map((acc, i) => (
+                          <option key={i} value={acc}>{acc}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1 text-[11px]">
+                        {paymentMethod === 'เช็คสั่งจ่าย' ? 'เลขที่เช็คสั่งจ่าย *' : 'เลขที่ทำรายการ / เลขอ้างอิงสลิป / Ref'}
+                      </label>
+                      <input
+                        type="text"
+                        list="dl-ref-doc-nos"
+                        value={chequeNo}
+                        onChange={(e) => setChequeNo(e.target.value)}
+                        placeholder={paymentMethod === 'เช็คสั่งจ่าย' ? 'เช่น 01620875-1' : 'เช่น TXN202501158941'}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-emerald-600 font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Paid Amount, Fee & Thai Baht Text */}
+                  <div className="bg-emerald-50/40 border border-emerald-200 rounded-lg p-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                      <div>
+                        <label className="font-bold text-slate-800 block mb-1 text-[11px]">
+                          ยอดเงินจ่ายจริงสุทธิ (บาท) *
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          required
+                          value={transferAmount}
+                          onChange={(e) => setTransferAmount(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full px-2.5 py-1.5 bg-white border-2 border-emerald-500 rounded-lg focus:ring-1 focus:ring-emerald-600 font-mono font-black text-right text-emerald-950 text-base"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1 text-[11px]">
+                          ค่าธรรมเนียมธนาคาร (บาท)
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={fee}
+                          onChange={(e) => setFee(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-emerald-600 font-mono text-right text-xs"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-1">
+                        <span className="text-[10px] text-slate-500 block font-medium">จำนวนเงินตัวอักษร:</span>
+                        <div className="font-bold text-emerald-900 text-xs mt-0.5 leading-snug">
+                          ({numberToThaiBaht(parseFloat(transferAmount) || disbursement.totalAmount)})
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Google Drive / Document Link */}
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-[11px] flex items-center gap-1">
+                      <Link className="w-3 h-3 text-blue-600" />
+                      <span>ลิงก์เอกสารอ้างอิงออนไลน์ (Google Drive / Online Document Link)</span>
                     </label>
                     <input
-                      type="text"
-                      required
-                      value={financeRecordedBy}
-                      onChange={(e) => setFinanceRecordedBy(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                      type="url"
+                      value={documentLink}
+                      onChange={(e) => setDocumentLink(e.target.value)}
+                      placeholder="https://drive.google.com/..."
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-emerald-600 text-xs font-mono"
                     />
                   </div>
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-[10px] text-slate-600 space-y-1">
-                    <div className="font-bold text-slate-700">🔒 มาตรฐานความปลอดภัย:</div>
-                    <div>• ระบบจะออกเลขอ้างอิงใบรับรองดิจิทัลแบบเข้ารหัส</div>
-                    <div>• ประทับตรา **PAID** สีแดงบนเอกสาร A4 ทันที</div>
-                  </div>
-                </div>
-
-                <div className="sm:col-span-7">
-                  <SignaturePad
-                    signerName={financeRecordedBy}
-                    signatureDataUrl={payerSignature}
-                    onSaveSignature={(sig) => setPayerSignature(sig)}
-                    title="วาดลายเซ็นสดผู้จ่ายเงิน (เซ็นด้วยเมาส์หรือนิ้วมือ)"
-                  />
                 </div>
               </div>
+
+              {/* 4. PAYMENT SLIP EVIDENCE SECTION */}
+              <div className="border border-slate-300 rounded-lg overflow-hidden bg-white">
+                <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 font-bold text-slate-800 text-xs flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Image className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>หลักฐานการโอนเงิน / ภาพสลิปธนาคาร (Slip Evidence)</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-normal">
+                    ลากวางไฟล์ หรือกด <kbd className="font-mono font-bold text-blue-700">Ctrl+V</kbd> เพื่อวางภาพสลิปทันที
+                  </span>
+                </div>
+
+                <div className="p-3">
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-lg p-3 text-center cursor-pointer transition-all ${
+                      isDragging 
+                        ? 'border-emerald-500 bg-emerald-50' 
+                        : paymentSlipUrl 
+                        ? 'border-emerald-300 bg-emerald-50/40' 
+                        : 'border-slate-300 hover:border-slate-400 bg-slate-50/30'
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          handleFileUpload(e.target.files[0]);
+                        }
+                      }}
+                    />
+
+                    {paymentSlipUrl ? (
+                      <div className="flex items-center justify-between gap-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2.5">
+                          <img 
+                            src={paymentSlipUrl} 
+                            alt="Payment Slip" 
+                            className="w-12 h-12 object-cover rounded border border-emerald-300" 
+                          />
+                          <div className="text-left">
+                            <div className="font-bold text-emerald-950 truncate max-w-xs">{paymentSlipName || 'สลิปการโอนเงิน'}</div>
+                            <div className="text-[10px] text-emerald-700">แนบหลักฐานสลิปเรียบร้อยแล้ว</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewSlip(true)}
+                            className="px-2.5 py-1 bg-white hover:bg-slate-100 text-blue-700 border border-slate-200 rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            ดูรูปสลิป
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPaymentSlipUrl('');
+                              setPaymentSlipName('');
+                            }}
+                            className="p-1 text-slate-400 hover:text-red-600 rounded cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-3 text-slate-500 flex flex-col items-center justify-center gap-1">
+                        <Upload className="w-5 h-5 text-slate-400" />
+                        <span className="font-bold text-xs text-slate-700">คลิกเพื่อเลือกไฟล์ หรือลากสลิปมาวางที่นี่</span>
+                        <span className="text-[10px] text-slate-400">(รองรับ JPG, PNG, PDF หรือกด Ctrl+V เพื่อวางภาพสลิปทันที)</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 5. OFFICIAL 2-PARTY SIGNATURES BLOCK */}
+              <div className="border-2 border-slate-700 rounded-lg overflow-hidden bg-white">
+                <div className="bg-slate-800 text-white px-3 py-1 text-center font-bold text-xs tracking-wider">
+                  ผู้มีอำนาจลงนามสั่งจ่าย & รับรองใบสำคัญจ่าย (OFFICIAL PAYMENT SIGNATURES)
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-300 text-center">
+                  
+                  {/* Left: ผู้มีอำนาจสั่งจ่าย / เจ้าหน้าที่การเงิน (Finance Officer / Payer) */}
+                  <div className="p-3 flex flex-col justify-between space-y-2 bg-emerald-50/20">
+                    <div className="font-bold text-slate-800 text-[11px] flex items-center justify-center gap-1">
+                      <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>ผู้มีอำนาจสั่งจ่าย / เจ้าหน้าที่การเงิน (Finance Officer)</span>
+                    </div>
+
+                    <div className="min-h-[75px] flex flex-col items-center justify-center border-b border-dashed border-slate-300 pb-2">
+                      {payerSignature ? (
+                        <div className="space-y-1">
+                          <img 
+                            src={payerSignature} 
+                            alt="Payer Signature" 
+                            className="h-12 max-w-[130px] object-contain mx-auto bg-white rounded border border-slate-200 p-0.5 shadow-xs" 
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSignModal(true)}
+                            className="text-[10px] text-emerald-700 hover:underline block font-semibold cursor-pointer"
+                          >
+                            ✍️ เปลี่ยน/เซ็นสดใหม่
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShowSignModal(true)}
+                          className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                        >
+                          <PenTool className="w-3.5 h-3.5" />
+                          <span>✍️ เซ็นชื่อสดสั่งจ่าย</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="text-[11px] text-slate-700 space-y-0.5">
+                      <div className="font-bold">({financeRecordedBy})</div>
+                      <div className="text-[10px] text-slate-500">วันที่สั่งจ่าย: {paymentDate}</div>
+                    </div>
+                  </div>
+
+                  {/* Right: ผู้รับเงิน / บันทึกบัญชี (Payee & Verification) */}
+                  <div className="p-3 flex flex-col justify-between space-y-2 bg-slate-50/50">
+                    <div className="font-bold text-slate-700 text-[11px] flex items-center justify-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                      <span>ผู้รับเงิน / บันทึกบัญชี (Payee & Audit Verification)</span>
+                    </div>
+
+                    <div className="min-h-[75px] flex flex-col items-center justify-center border-b border-dashed border-slate-300 pb-2">
+                      {qrCodeUrl ? (
+                        <div className="flex items-center gap-2">
+                          <img src={qrCodeUrl} alt="Audit QR" className="w-12 h-12 rounded border border-slate-200 shadow-xs" />
+                          <div className="text-left text-[9px] text-slate-500">
+                            <span className="font-bold text-emerald-700 block">✓ VERIFIED STAMP</span>
+                            <span>{certId.slice(0, 14)}...</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-slate-400">
+                          (โอนเงินเข้าบัญชีตามหลักฐานสลิป)
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="text-[11px] text-slate-700 space-y-0.5">
+                      <div className="font-bold">({disbursement.payeeName})</div>
+                      <div className="text-[10px] text-slate-400">ผู้รับเงิน / ร้านค้าคู่สัญญา</div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
             </div>
 
-          </div>
-          </div>
-
-          {/* STEP 4 CONFIRMATION ACTIONS (Sticky Bottom Footer) */}
-          <div className="shrink-0 px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="text-[11px] text-slate-500">
-              เมื่อกดยืนยัน ระบบจะเปลี่ยนสถานะเป็น <strong className="text-emerald-700">"จ่ายเงินแล้ว" (Paid)</strong> และออกเลขที่ใบสำคัญจ่าย <strong className="text-blue-700 font-mono">PV-xxxx</strong> พร้อมพิมพ์ได้ทันที
+          {/* Sticky Bottom Confirmation Bar */}
+          <div className="shrink-0 px-6 py-3.5 bg-slate-800 border-t border-slate-700 flex items-center justify-between flex-wrap gap-3 text-white">
+            <div className="text-[11px] text-slate-300 flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>เมื่อกดยืนยัน ระบบจะเปลี่ยนสถานะเป็น <strong>"จ่ายเงินแล้ว" (Paid)</strong> และออกเลขที่ใบสำคัญจ่าย PV ทันที</span>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200 font-bold cursor-pointer transition-colors"
+                className="px-4 py-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700 font-bold cursor-pointer transition-colors text-xs"
               >
-                ยกเลิก
+                ปิดหน้าต่าง
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl bg-linear-to-r from-emerald-600 to-[#005aa9] hover:from-emerald-700 hover:to-[#004887] text-white font-extrabold text-xs shadow-md shadow-emerald-700/20 flex items-center gap-2 cursor-pointer transition-all hover:scale-[1.01]"
+                className="px-5 py-2.5 rounded-xl bg-linear-to-r from-emerald-600 to-[#005aa9] hover:from-emerald-700 hover:to-[#004887] text-white font-extrabold text-xs shadow-md shadow-emerald-900/30 flex items-center gap-2 cursor-pointer transition-all hover:scale-[1.01]"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>ยืนยันบันทึกจ่ายเงิน (Confirm Payment & Issue PV)</span>
@@ -637,6 +705,23 @@ export function RecordPaymentModal({
           </div>
         </div>
       )}
+
+      {/* Dedicated Signature Action Modal on Payment Confirm */}
+      <SignatureActionModal
+        isOpen={showSignModal}
+        onClose={() => setShowSignModal(false)}
+        onConfirm={handleConfirmSignatureAndPay}
+        title="ลงนามด้วยลายมือชื่อสดสั่งจ่ายเงิน (Payment Live Signature)"
+        subtitle="ลงนามสดด้วยตนเองเพื่อออกใบสำคัญจ่าย (PV) และประทับตรารับรองเอกสาร"
+        signerName={financeRecordedBy}
+        signerRole="ฝ่ายการเงิน (Treasury / Finance)"
+        docNo={disbursement.dbmNo}
+        docTitle={`จ่ายชำระ ${disbursement.payeeName} - โครงการ ${disbursement.project}`}
+        amount={parseFloat(transferAmount) || disbursement.totalAmount}
+        actionType="pay"
+        confirmButtonText="ยืนยันลายมือชื่อสดและบันทึกจ่ายเงิน"
+        initialSignature={payerSignature}
+      />
 
     </div>
   );

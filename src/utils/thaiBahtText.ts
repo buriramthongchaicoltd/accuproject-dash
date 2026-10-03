@@ -76,6 +76,8 @@ export interface CompanyHeaderInfo {
   address: string;
   taxId: string;
   phone: string;
+  email?: string;
+  logoUrl?: string;
   logoText: string;
 }
 
@@ -84,8 +86,10 @@ export const COMPANY_PROFILES: Record<string, CompanyHeaderInfo> = {
     name: 'BTC',
     fullName: 'บริษัท บุรีรัมย์ธงชัยก่อสร้าง จำกัด',
     address: '31/2 ถนนอินจันทร์ณรงค์ ต.ในเมือง อ.เมือง จ.บุรีรัมย์ 31000',
-    taxId: '0315535000181',
-    phone: '044-611835, 044-612644',
+    taxId: '0315559001144',
+    phone: '044-611134',
+    email: 'brtc2024@gmail.com',
+    logoUrl: 'https://img2.pic.in.th/pic/Screenshot-2025-03-03-132721e6cc77cbcea28f01.png',
     logoText: 'BTC'
   },
   'BTCP': {
@@ -93,7 +97,9 @@ export const COMPANY_PROFILES: Record<string, CompanyHeaderInfo> = {
     fullName: 'บริษัท บุรีรัมย์ธงชัย แพลนท์ จำกัด',
     address: '31/2 ถนนอินจันทร์ณรงค์ ต.ในเมือง อ.เมือง จ.บุรีรัมย์ 31000',
     taxId: '0315559000451',
-    phone: '044-611835',
+    phone: '044-611134',
+    email: 'plant@buriramthongchai.co.th',
+    logoUrl: 'https://img2.pic.in.th/pic/Screenshot-2025-03-03-132721e6cc77cbcea28f01.png',
     logoText: 'BTCP'
   },
   'TBTC': {
@@ -101,7 +107,9 @@ export const COMPANY_PROFILES: Record<string, CompanyHeaderInfo> = {
     fullName: 'บริษัท ธงชัยบุรีรัมย์ก่อสร้าง จำกัด',
     address: '31/2 ถนนอินจันทร์ณรงค์ ต.ในเมือง อ.เมือง จ.บุรีรัมย์ 31000',
     taxId: '0315562000889',
-    phone: '044-611835',
+    phone: '044-611134',
+    email: 'tbtc@buriramthongchai.co.th',
+    logoUrl: 'https://img2.pic.in.th/pic/Screenshot-2025-03-03-132721e6cc77cbcea28f01.png',
     logoText: 'TBTC'
   },
   'BTC-PC': {
@@ -109,15 +117,19 @@ export const COMPANY_PROFILES: Record<string, CompanyHeaderInfo> = {
     fullName: 'กิจการร่วมค้า บีทีซี-พีซี (BTC-PC JOINT VENTURE)',
     address: '31/2 ถนนอินจันทร์ณรงค์ ต.ในเมือง อ.เมือง จ.บุรีรัมย์ 31000',
     taxId: '0993000456123',
-    phone: '044-611835',
+    phone: '044-611134',
+    email: 'jv-btpc@buriramthongchai.co.th',
+    logoUrl: 'https://img2.pic.in.th/pic/Screenshot-2025-03-03-132721e6cc77cbcea28f01.png',
     logoText: 'BTC-PC'
   },
   'DEFAULT': {
     name: 'BTC',
     fullName: 'บริษัท บุรีรัมย์ธงชัยก่อสร้าง จำกัด',
     address: '31/2 ถนนอินจันทร์ณรงค์ ต.ในเมือง อ.เมือง จ.บุรีรัมย์ 31000',
-    taxId: '0315535000181',
-    phone: '044-611835',
+    taxId: '0315559001144',
+    phone: '044-611134',
+    email: 'brtc2024@gmail.com',
+    logoUrl: 'https://img2.pic.in.th/pic/Screenshot-2025-03-03-132721e6cc77cbcea28f01.png',
     logoText: 'BTC'
   }
 };
@@ -128,8 +140,10 @@ export function getCompanyProfile(companyCode?: string): CompanyHeaderInfo {
     name: companyCode,
     fullName: `บริษัท ${companyCode} จำกัด`,
     address: '31/2 ถนนอินจันทร์ณรงค์ ต.ในเมือง อ.เมือง จ.บุรีรัมย์ 31000',
-    taxId: '0315535000181',
-    phone: '044-611835',
+    taxId: '0315559001144',
+    phone: '044-611134',
+    email: 'brtc2024@gmail.com',
+    logoUrl: 'https://img2.pic.in.th/pic/Screenshot-2025-03-03-132721e6cc77cbcea28f01.png',
     logoText: companyCode
   };
 }

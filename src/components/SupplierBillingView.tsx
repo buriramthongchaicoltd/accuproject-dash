@@ -1,6 +1,7 @@
 import { useState, useMemo, FormEvent } from 'react';
 import { SupplierBilling, SupplierBillItem, GoodsReceiptItem } from '../types';
 import { formatCurrency } from '../utils/accounting';
+import { getActiveUserName } from '../services/userService';
 import { 
   ReceiptText, 
   Search, 
@@ -30,6 +31,7 @@ import {
   Truck,
   Sparkles
 } from 'lucide-react';
+import { SearchableCombobox } from './SearchableCombobox';
 
 interface SupplierBillingViewProps {
   billings: SupplierBilling[];
@@ -997,6 +999,22 @@ function NewBillingModal({
     return Array.from(map.entries()).map(([vendor, count]) => ({ vendor, count }));
   }, [goodsReceipts]);
 
+  // Master vendors list for combobox
+  const allVendorsList = useMemo(() => {
+    const list = new Set<string>();
+    goodsReceipts.forEach(g => { if (g.vendorName) list.add(g.vendorName); });
+    [
+      'บจก. สุรินทร์คอนกรีตโปรดักส์',
+      'หจก. ปิยะวิลล์คอนสตรัคชั่น',
+      'โรงงาน ป.ศิลาชัย คอนกรีต',
+      'บจก. ชลประทานซีเมนต์',
+      'หจก. บุรีรัมย์ศิลาชัย',
+      'บจก. บุรีรัมย์วัสดุภัณฑ์',
+      'หจก. รวมสินคอนสตรัคชั่น'
+    ].forEach(v => list.add(v));
+    return Array.from(list);
+  }, [goodsReceipts]);
+
   // Filter goods receipts available for matching for the chosen vendor
   const availableReceiptsForVendor = useMemo(() => {
     if (!vendorName) return [];
@@ -1202,16 +1220,21 @@ function NewBillingModal({
           {/* Vendor and Project Form Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
-              <label className="font-semibold text-slate-700 block mb-1">
-                ชื่อร้านค้า / ผู้จำหน่ายตามใบวางบิล *
-              </label>
-              <input
-                type="text"
+              <SearchableCombobox
+                label="ชื่อร้านค้า / ผู้จำหน่ายตามใบวางบิล"
                 required
-                placeholder="เช่น บจก. สุรินทร์คอนกรีตโปรดักส์"
                 value={vendorName}
-                onChange={e => setVendorName(e.target.value)}
-                className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs font-bold"
+                onChange={(val) => {
+                  setVendorName(val);
+                  const match = goodsReceipts.find(g => g.vendorName === val);
+                  if (match) setProject(match.project);
+                }}
+                options={allVendorsList}
+                datalistId="dl-payees"
+                placeholder="เลือกหรือพิมพ์ค้นหาร้านค้า"
+                searchPlaceholder="พิมพ์ชื่อร้านค้าเพื่อกรองหรือเพิ่ม..."
+                allowCustom={true}
+                accentColor="emerald"
               />
             </div>
 
@@ -1219,6 +1242,7 @@ function NewBillingModal({
               <label className="font-semibold text-slate-700 block mb-1">เลขประจำตัวผู้เสียภาษี 13 หลัก</label>
               <input
                 type="text"
+                list="dl-tax-ids"
                 placeholder="03155xxxxxxxx"
                 value={vendorTaxId}
                 onChange={e => setVendorTaxId(e.target.value)}
@@ -1229,16 +1253,17 @@ function NewBillingModal({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">โครงการ *</label>
-              <select
+              <SearchableCombobox
+                label="โครงการ"
+                required
                 value={project}
-                onChange={e => setProject(e.target.value)}
-                className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs font-medium"
-              >
-                {projects.map(p => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
+                onChange={(val) => setProject(val)}
+                options={projects}
+                datalistId="dl-projects"
+                placeholder="เลือกหรือพิมพ์โครงการ"
+                allowCustom={true}
+                accentColor="emerald"
+              />
             </div>
 
             <div>
@@ -1414,6 +1439,7 @@ function NewBillingModal({
                     <div key={i} className="flex items-center gap-2">
                       <input
                         type="text"
+                        list="dl-express-po"
                         placeholder="PO Express"
                         value={c.expressPoNo}
                         onChange={e => handleCustomItemChange(i, 'expressPoNo', e.target.value)}
@@ -1421,6 +1447,7 @@ function NewBillingModal({
                       />
                       <input
                         type="text"
+                        list="dl-delivery-orders"
                         placeholder="เลขที่ DO"
                         value={c.doNo}
                         onChange={e => handleCustomItemChange(i, 'doNo', e.target.value)}
@@ -1428,6 +1455,7 @@ function NewBillingModal({
                       />
                       <input
                         type="text"
+                        list="dl-item-descriptions"
                         placeholder="คำอธิบายรายการ"
                         value={c.description}
                         onChange={e => handleCustomItemChange(i, 'description', e.target.value)}
@@ -1576,11 +1604,40 @@ function NewGoodsReceiptModal({ isOpen, onClose, projects, onSave }: NewGoodsRec
   const [receivedQty, setReceivedQty] = useState<number>(0);
   const [unit, setUnit] = useState('ตัน');
   const [unitPrice, setUnitPrice] = useState<number>(0);
-  const [receiverName, setReceiverName] = useState('สมพร สโตร์');
+  const [receiverName, setReceiverName] = useState(() => getActiveUserName());
   const [hasReceiverSignature, setHasReceiverSignature] = useState(true);
   const [hasWeightSlip, setHasWeightSlip] = useState(false);
   const [isBackcharge, setIsBackcharge] = useState(false);
   const [contractorName, setContractorName] = useState('');
+
+  const commonVendors = [
+    'บจก. สุรินทร์คอนกรีตโปรดักส์',
+    'หจก. ปิยะวิลล์คอนสตรัคชั่น',
+    'โรงงาน ป.ศิลาชัย คอนกรีต',
+    'บจก. ชลประทานซีเมนต์',
+    'หจก. บุรีรัมย์ศิลาชัย',
+    'บจก. บุรีรัมย์วัสดุภัณฑ์',
+    'หจก. รวมสินคอนสตรัคชั่น'
+  ];
+
+  const commonMaterials = [
+    'ยางแอสฟัลต์คอนกรีต AC 60/70',
+    'หินคลุก (Crushed Rock Base)',
+    'ทรายหยาบถมคันทาง',
+    'คอนกรีตผสมเสร็จ 240 ksc (Cylinder)',
+    'คอนกรีตผสมเสร็จ 280 ksc (Cylinder)',
+    'เหล็กเส้นกลม RB9 มอก.',
+    'เหล็กข้ออ้อย DB12 มอก.',
+    'เหล็กข้ออ้อย DB16 มอก.',
+    'ท่อคอนกรีตเสริมเหล็ก คสล. คมล. มอก. ชั้น 3'
+  ];
+
+  const commonReceivers = [
+    'สมพร สโตร์',
+    'นายอานนท์ รุ่งเรือง (วิศวกรสนาม)',
+    'นายสมชาย คำมี (โฟร์แมน)',
+    'น.ส.ปวีณา ใยอุ่น'
+  ];
 
   const amount = receivedQty * unitPrice;
 
@@ -1640,29 +1697,32 @@ function NewGoodsReceiptModal({ isOpen, onClose, projects, onSave }: NewGoodsRec
 
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 text-xs">
           <div>
-            <label className="font-semibold text-slate-700 block mb-1">ร้านค้า / ผู้จำหน่าย *</label>
-            <input
-              type="text"
+            <SearchableCombobox
+              label="ร้านค้า / ผู้จำหน่าย"
               required
-              placeholder="เช่น บจก. สุรินทร์คอนกรีตโปรดักส์"
               value={vendorName}
-              onChange={e => setVendorName(e.target.value)}
-              className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs font-bold"
+              onChange={(val) => setVendorName(val)}
+              options={commonVendors}
+              datalistId="dl-payees"
+              placeholder="เลือกหรือพิมพ์ค้นหาร้านค้า"
+              allowCustom={true}
+              accentColor="blue"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">โครงการ *</label>
-              <select
+              <SearchableCombobox
+                label="โครงการ"
+                required
                 value={project}
-                onChange={e => setProject(e.target.value)}
-                className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs font-medium"
-              >
-                {projects.map(p => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
+                onChange={(val) => setProject(val)}
+                options={projects}
+                datalistId="dl-projects"
+                placeholder="เลือกหรือพิมพ์โครงการ"
+                allowCustom={true}
+                accentColor="blue"
+              />
             </div>
             <div>
               <label className="font-semibold text-slate-700 block mb-1">วันที่ตรวจรับ *</label>
@@ -1682,6 +1742,7 @@ function NewGoodsReceiptModal({ isOpen, onClose, projects, onSave }: NewGoodsRec
               <input
                 type="text"
                 required
+                list="dl-express-po"
                 placeholder="PO68-0112"
                 value={expressPoNo}
                 onChange={e => setExpressPoNo(e.target.value)}
@@ -1693,6 +1754,7 @@ function NewGoodsReceiptModal({ isOpen, onClose, projects, onSave }: NewGoodsRec
               <input
                 type="text"
                 required
+                list="dl-delivery-orders"
                 placeholder="DO-1205"
                 value={deliveryOrderNo}
                 onChange={e => setDeliveryOrderNo(e.target.value)}
@@ -1701,16 +1763,45 @@ function NewGoodsReceiptModal({ isOpen, onClose, projects, onSave }: NewGoodsRec
             </div>
           </div>
 
-          <div>
-            <label className="font-semibold text-slate-700 block mb-1">รายการพัสดุ / สเปกวัสดุ *</label>
-            <input
-              type="text"
-              required
-              placeholder="เช่น ยางแอสฟัลต์คอนกรีต AC 60/70"
-              value={materialDescription}
-              onChange={e => setMaterialDescription(e.target.value)}
-              className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs font-semibold"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <SearchableCombobox
+                label="รายการพัสดุ / สเปกวัสดุ"
+                required
+                value={materialDescription}
+                onChange={(val) => setMaterialDescription(val)}
+                options={commonMaterials}
+                datalistId="dl-item-descriptions"
+                placeholder="เลือกหรือพิมพ์วัสดุ"
+                allowCustom={true}
+                accentColor="blue"
+              />
+            </div>
+            <div>
+              <SearchableCombobox
+                label="เจ้าหน้าที่ผู้ตรวจรับ (Receiver)"
+                required
+                value={receiverName}
+                onChange={(val) => setReceiverName(val)}
+                options={commonReceivers}
+                datalistId="dl-receivers"
+                placeholder="เลือกหรือพิมพ์ชื่อผู้รับ"
+                allowCustom={true}
+                accentColor="blue"
+              />
+              <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1 px-1">
+                <span>* ค่าเริ่มต้นดึงจากผู้ใช้งานระบบ</span>
+                {receiverName !== getActiveUserName() && (
+                  <button
+                    type="button"
+                    onClick={() => setReceiverName(getActiveUserName())}
+                    className="text-[#005aa9] hover:underline font-semibold cursor-pointer"
+                  >
+                    ใช้ชื่อฉัน ({getActiveUserName()})
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -1730,6 +1821,7 @@ function NewGoodsReceiptModal({ isOpen, onClose, projects, onSave }: NewGoodsRec
               <input
                 type="text"
                 required
+                list="dl-units"
                 placeholder="ตัน, ลบ.ม., เส้น"
                 value={unit}
                 onChange={e => setUnit(e.target.value)}

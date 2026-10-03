@@ -6,6 +6,7 @@ import {
   VendorQuotationItem 
 } from '../types';
 import { formatCurrency } from '../utils/accounting';
+import { getActiveUserName } from '../services/userService';
 import { 
   ShoppingBag, 
   Search, 
@@ -28,6 +29,7 @@ import {
   Download,
   Receipt
 } from 'lucide-react';
+import { SearchableCombobox } from './SearchableCombobox';
 
 interface ProcurementViewProps {
   rfqItems: RFQComparisonItem[];
@@ -647,9 +649,36 @@ function NewBackchargeModal({ isOpen, onClose, subcontracts, onSave }: NewBackch
   const [unit, setUnit] = useState('ลบ.ม.');
   const [unitPrice, setUnitPrice] = useState<number>(0);
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [siteReceiverName, setSiteReceiverName] = useState('วิศวกรภาคสนาม');
+  const [siteReceiverName, setSiteReceiverName] = useState(() => getActiveUserName());
   const [subcontractorReceiverName, setSubcontractorReceiverName] = useState('');
   const [notes, setNotes] = useState('');
+
+  const commonSuppliers = [
+    'โรงงาน ป.ศิลาชัย คอนกรีต',
+    'บจก. สุรินทร์คอนกรีตโปรดักส์',
+    'หจก. ปิยะวิลล์คอนสตรัคชั่น',
+    'บจก. ชลประทานซีเมนต์',
+    'หจก. บุรีรัมย์ศิลาชัย',
+    'บจก. บุรีรัมย์วัสดุภัณฑ์'
+  ];
+
+  const commonMaterials = [
+    'คอนกรีตผสมเสร็จ 240 ksc หุ้มท่อ',
+    'คอนกรีตผสมเสร็จ 280 ksc งานสะพาน',
+    'ยางแอสฟัลต์คอนกรีต AC 60/70',
+    'หินคลุก (Crushed Rock Base)',
+    'ทรายหยาบถมคันทาง',
+    'เหล็กเส้นกลม RB9 มอก.',
+    'เหล็กข้ออ้อย DB12 มอก.',
+    'เหล็กข้ออ้อย DB16 มอก.'
+  ];
+
+  const commonEngineers = [
+    'วิศวกรภาคสนาม',
+    'นายอานนท์ รุ่งเรือง (วิศวกรสนาม)',
+    'นายสมชาย คำมี (โฟร์แมน)',
+    'สมพร สโตร์'
+  ];
 
   const selectedContract = useMemo(() => {
     return subcontracts.find(s => s.id === selectedSubId);
@@ -716,6 +745,7 @@ function NewBackchargeModal({ isOpen, onClose, subcontracts, onSave }: NewBackch
               <input
                 type="text"
                 required
+                list="dl-express-po"
                 placeholder="เช่น PO68-0089"
                 value={expressPoNo}
                 onChange={e => setExpressPoNo(e.target.value)}
@@ -726,6 +756,7 @@ function NewBackchargeModal({ isOpen, onClose, subcontracts, onSave }: NewBackch
               <label className="font-semibold text-slate-700 block mb-1">เลขที่ใบส่งของร้านค้า (DO)</label>
               <input
                 type="text"
+                list="dl-delivery-orders"
                 placeholder="เช่น DO-9841"
                 value={deliveryOrderNo}
                 onChange={e => setDeliveryOrderNo(e.target.value)}
@@ -756,14 +787,16 @@ function NewBackchargeModal({ isOpen, onClose, subcontracts, onSave }: NewBackch
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">ชื่อร้านค้า / แพลนต์คอนกรีต *</label>
-              <input
-                type="text"
+              <SearchableCombobox
+                label="ชื่อร้านค้า / แพลนต์คอนกรีต"
                 required
-                placeholder="เช่น โรงงาน ป.ศิลาชัย คอนกรีต"
                 value={vendorName}
-                onChange={e => setVendorName(e.target.value)}
-                className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs"
+                onChange={(val) => setVendorName(val)}
+                options={commonSuppliers}
+                datalistId="dl-payees"
+                placeholder="เลือกหรือพิมพ์ชื่อร้านค้า"
+                allowCustom={true}
+                accentColor="blue"
               />
             </div>
             <div>
@@ -779,14 +812,16 @@ function NewBackchargeModal({ isOpen, onClose, subcontracts, onSave }: NewBackch
           </div>
 
           <div>
-            <label className="font-semibold text-slate-700 block mb-1">รายการวัสดุที่ส่งมอบให้ช่าง *</label>
-            <input
-              type="text"
+            <SearchableCombobox
+              label="รายการวัสดุที่ส่งมอบให้ช่าง"
               required
-              placeholder="เช่น คอนกรีตผสมเสร็จ 240 ksc หุ้มท่อ กม. 10+000"
               value={materialDescription}
-              onChange={e => setMaterialDescription(e.target.value)}
-              className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs font-semibold"
+              onChange={(val) => setMaterialDescription(val)}
+              options={commonMaterials}
+              datalistId="dl-item-descriptions"
+              placeholder="เลือกหรือระบุวัสดุ"
+              allowCustom={true}
+              accentColor="blue"
             />
           </div>
 
@@ -807,6 +842,7 @@ function NewBackchargeModal({ isOpen, onClose, subcontracts, onSave }: NewBackch
               <input
                 type="text"
                 required
+                list="dl-units"
                 value={unit}
                 onChange={e => setUnit(e.target.value)}
                 className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs"
@@ -834,18 +870,34 @@ function NewBackchargeModal({ isOpen, onClose, subcontracts, onSave }: NewBackch
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">วิศวกร/ผู้รับของหน้างาน</label>
-              <input
-                type="text"
+              <SearchableCombobox
+                label="วิศวกร/ผู้รับของหน้างาน"
                 value={siteReceiverName}
-                onChange={e => setSiteReceiverName(e.target.value)}
-                className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs"
+                onChange={(val) => setSiteReceiverName(val)}
+                options={commonEngineers}
+                datalistId="dl-receivers"
+                placeholder="เลือกผู้รับของ"
+                allowCustom={true}
+                accentColor="blue"
               />
+              <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1 px-1">
+                <span>* ดึงจากผู้ใช้งานระบบ</span>
+                {siteReceiverName !== getActiveUserName() && (
+                  <button
+                    type="button"
+                    onClick={() => setSiteReceiverName(getActiveUserName())}
+                    className="text-[#005aa9] hover:underline font-semibold cursor-pointer"
+                  >
+                    ใช้ชื่อฉัน ({getActiveUserName()})
+                  </button>
+                )}
+              </div>
             </div>
             <div>
               <label className="font-semibold text-slate-700 block mb-1">หัวหน้าช่าง/ผู้เซ็นรับ</label>
               <input
                 type="text"
+                list="dl-payees"
                 placeholder="ชื่อหัวหน้าช่างที่เซ็นชื่อ"
                 value={subcontractorReceiverName}
                 onChange={e => setSubcontractorReceiverName(e.target.value)}
@@ -858,6 +910,7 @@ function NewBackchargeModal({ isOpen, onClose, subcontracts, onSave }: NewBackch
             <label className="font-semibold text-slate-700 block mb-1">หมายเหตุ</label>
             <input
               type="text"
+              list="dl-remarks"
               placeholder="เช่น มีใบส่งของตัวจริงแนบอยู่หน้างาน"
               value={notes}
               onChange={e => setNotes(e.target.value)}
@@ -904,6 +957,18 @@ function NewRFQModal({ isOpen, onClose, projects, onSave }: NewRFQModalProps) {
   const [quantity, setQuantity] = useState<number>(0);
   const [unit, setUnit] = useState('ลบ.ม.');
   const [targetBudgetUnitPrice, setTargetBudgetUnitPrice] = useState<number>(0);
+
+  const commonMaterials = [
+    'คอนกรีตผสมเสร็จ 240 ksc',
+    'คอนกรีตผสมเสร็จ 280 ksc',
+    'ยางแอสฟัลต์คอนกรีต AC 60/70',
+    'หินคลุก (Crushed Rock Base)',
+    'ทรายหยาบถมคันทาง',
+    'เหล็กเส้นกลม RB9 มอก.',
+    'เหล็กข้ออ้อย DB12 มอก.',
+    'เหล็กข้ออ้อย DB16 มอก.',
+    'ท่อ คสล. ชั้น 3 ศก. 1.00 ม.'
+  ];
 
   // 3 Vendors Quotations
   const [vendor1, setVendor1] = useState<VendorQuotationItem>({
@@ -975,34 +1040,38 @@ function NewRFQModal({ isOpen, onClose, projects, onSave }: NewRFQModalProps) {
 
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 text-xs">
           <div>
-            <label className="font-semibold text-slate-700 block mb-1">โครงการ *</label>
-            <select
+            <SearchableCombobox
+              label="โครงการ"
+              required
               value={project}
-              onChange={e => setProject(e.target.value)}
-              className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs font-medium"
-            >
-              {projects.map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
+              onChange={(val) => setProject(val)}
+              options={projects}
+              datalistId="dl-projects"
+              placeholder="เลือกหรือพิมพ์โครงการ"
+              allowCustom={true}
+              accentColor="blue"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">ชื่อรายการวัสดุ *</label>
-              <input
-                type="text"
+              <SearchableCombobox
+                label="ชื่อรายการวัสดุ"
                 required
-                placeholder="เช่น คอนกรีตผสมเสร็จ 240 ksc"
                 value={materialName}
-                onChange={e => setMaterialName(e.target.value)}
-                className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs font-bold"
+                onChange={(val) => setMaterialName(val)}
+                options={commonMaterials}
+                datalistId="dl-item-descriptions"
+                placeholder="เลือกหรือพิมพ์ชื่อวัสดุ"
+                allowCustom={true}
+                accentColor="blue"
               />
             </div>
             <div>
               <label className="font-semibold text-slate-700 block mb-1">สเปก / ข้อกำหนด</label>
               <input
                 type="text"
+                list="dl-item-descriptions"
                 placeholder="เช่น Slump 10 ซม., ปูนซีเมนต์ Type 1"
                 value={spec}
                 onChange={e => setSpec(e.target.value)}
@@ -1028,6 +1097,7 @@ function NewRFQModal({ isOpen, onClose, projects, onSave }: NewRFQModalProps) {
               <input
                 type="text"
                 required
+                list="dl-units"
                 value={unit}
                 onChange={e => setUnit(e.target.value)}
                 className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs"
@@ -1056,6 +1126,7 @@ function NewRFQModal({ isOpen, onClose, projects, onSave }: NewRFQModalProps) {
                 <input
                   type="text"
                   required
+                  list="dl-payees"
                   placeholder="ชื่อร้านค้า / บจก."
                   value={vendor1.vendorName}
                   onChange={e => setVendor1({ ...vendor1, vendorName: e.target.value })}
@@ -1105,6 +1176,7 @@ function NewRFQModal({ isOpen, onClose, projects, onSave }: NewRFQModalProps) {
               <div className="col-span-2">
                 <input
                   type="text"
+                  list="dl-payees"
                   placeholder="ชื่อร้านค้า / บจก."
                   value={vendor2.vendorName}
                   onChange={e => setVendor2({ ...vendor2, vendorName: e.target.value })}
